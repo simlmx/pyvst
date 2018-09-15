@@ -1,1 +1,1 @@
-from .pyvst import VstPlugin
+from .vstplugin import VstPlugin
