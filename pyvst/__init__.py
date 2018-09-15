@@ -1,0 +1,1 @@
+from .pyvst import VstPlugin

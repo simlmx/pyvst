@@ -7,3 +7,5 @@
 *.pyc
 
 /tmp
+/.venv
+/pyvst.egg-info
