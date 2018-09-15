@@ -1,12 +1,14 @@
-from ctypes import cdll, Structure, POINTER, CFUNCTYPE, c_void_p, c_int, c_float, byref, c_int32, c_double, c_char
-from enum import Enum
+from ctypes import (cdll, Structure, POINTER, CFUNCTYPE,
+                    c_void_p, c_int, c_float, c_int32, c_double, c_char,
+                    addressof, byref, pointer)
+from enum import IntEnum
 
 
 # define kEffectMagic CCONST ('V', 's', 't', 'P')
 MAGIC = 1450406992
 
 
-class AudioMasterOpcodes(Enum):
+class AudioMasterOpcodes(IntEnum):
     # [index]: parameter index [opt]: parameter value  @see AudioEffect::setParameterAutomated
     audioMasterAutomate = 0
     # [return value]: Host VST version (for example 2400 for VST 2.4) @see AudioEffect::getMasterVersion
@@ -15,6 +17,82 @@ class AudioMasterOpcodes(Enum):
     audioMasterCurrentId = 2
     # no arguments  @see AudioEffect::masterIdle
     audioMasterIdle = 3
+
+
+class AEffectOpcodes(IntEnum):
+    # no arguments  @see AudioEffect::open
+    effOpen = 0
+    # no arguments  @see AudioEffect::close
+    effClose = 1
+
+    # [value]: new program number  @see AudioEffect::setProgram
+    effSetProgram = 2
+    # [return value]: current program number  @see AudioEffect::getProgram
+    effGetProgram = 3
+    # [ptr]: char* with new program name, limited to #kVstMaxProgNameLen  @see AudioEffect::setProgramName
+    effSetProgramName = 4
+    # [ptr]: char buffer for current program name, limited to #kVstMaxProgNameLen  @see AudioEffect::getProgramName
+    effGetProgramName = 5
+
+    # [ptr]: char buffer for parameter label, limited to #kVstMaxParamStrLen  @see AudioEffect::getParameterLabel
+    effGetParamLabel = 6
+    # [ptr]: char buffer for parameter display, limited to #kVstMaxParamStrLen  @see AudioEffect::getParameterDisplay
+    effGetParamDisplay = 7
+    # [ptr]: char buffer for parameter name, limited to #kVstMaxParamStrLen  @see AudioEffect::getParameterName
+    effGetParamName = 8
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effGetVu)
+
+    # [opt]: new sample rate for audio processing  @see AudioEffect::setSampleRate
+    effSetSampleRate = 10
+    # [value]: new maximum block size for audio processing  @see AudioEffect::setBlockSize
+    effSetBlockSize = 11
+    # [value]: 0 means "turn off", 1 means "turn on"  @see AudioEffect::suspend @see AudioEffect::resume
+    effMainsChanged = 12
+
+    # [ptr]: #ERect** receiving pointer to editor size  @see ERect @see AEffEditor::getRect
+    effEditGetRect = 13
+    # [ptr]: system dependent Window pointer, e.g. HWND on Windows  @see AEffEditor::open
+    effEditOpen = 14
+    # no arguments @see AEffEditor::close
+    effEditClose = 15
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effEditDraw)
+    # deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effEditMouse)
+    # deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effEditKey)
+
+    # no arguments @see AEffEditor::idle
+    effEditIdle = 19
+
+    # deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effEditTop)
+    # deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effEditSleep)
+    # deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effIdentify)
+
+    # [ptr]: void** for chunk data address [index]: 0 for bank, 1 for program  @see AudioEffect::getChunk
+    effGetChunk = 23
+    # [ptr]: chunk data [value]: byte size [index]: 0 for bank, 1 for program  @see AudioEffect::setChunk
+    effSetChunk = 24
+
+    effNumOpcodes = 25
+
+
+class VstStringConstants:
+    # used for #effGetProgramName, #effSetProgramName, #effGetProgramNameIndexed
+    kVstMaxProgNameLen   = 24
+    # used for #effGetParamLabel, #effGetParamDisplay, #effGetParamName
+    kVstMaxParamStrLen   = 8
+    # used for #effGetVendorString, #audioMasterGetVendorString
+    kVstMaxVendorStrLen  = 64
+    # used for #effGetProductString, #audioMasterGetProductString
+    kVstMaxProductStrLen = 64
+    # used for #effGetEffectName
+    kVstMaxEffectNameLen = 32
 
 
 class AEffect(Structure):
@@ -68,11 +146,51 @@ AEffect._fields_ = [
 ]
 
 
+class VstParameterProperties(Structure):
+    _fields_ = [
+        ('step_float', c_float),
+        ('small_step_float', c_float),
+        ('large_step_float', c_float),
+        ('label', c_char * 64),  # FIXME remove hard-coded 64
+        ('flags', c_int32),
+        ('min_int', c_int32),
+        ('max_int', c_int32),
+        ('step_int', c_int32),
+        ('large_step_int', c_int32),
+        ('short_label', c_char * 8),  # FIXME same
+        # FIXME unfinished
+    ]
+
+
+class VstPinProperties(Structure):
+    _fields_ = [
+        # pin name
+        ('label', c_char * 64),  # FIXME same
+        # VstPinPropertiesFlags
+        ('flags', c_int32),
+        # VstSpeakerArrangementType
+        ('arrangement_type', c_int32),
+        # short name (recommende 6 + delimiter)
+        ('short_label', c_char * 8),  # FIXME same
+    ]
+
+
 def audio_master_callback(effect, opcode, index, value, ptr, opt):
     if opcode == AudioMasterOpcodes.audioMasterVersion.value:
         return 2400
     else:
         raise NotImplementedError('audio master call back opcode "{opcode}" not supported yet'.format(opcode=opcode))
+
+
+# class Parameter:
+#     def __init__(self, name, label, value, display):
+#         self.name = name
+#         self.label = label
+#         self.value = value
+#         self.display = display
+
+#     def __str__(self):
+#         return '{}={}'.format(self.name, self.label)
 
 
 class VstPlugin:
@@ -84,24 +202,80 @@ class VstPlugin:
 
         assert self._effect.magic == MAGIC
 
+        if self.vst_version != 2400:
+            print('Warning: this plugin is not a VST2.4 plugin')
+
     def _dispatch(self, opcode, index=0, value=0, ptr=None, opt=0.):
         if ptr is None:
             ptr = c_void_p(None)
         # self._effect.dispatcher.argtypes = [POINTER(AEffect), c_int32, c_int32, c_int, c_void_p, c_float]
-        self._effect.dispatcher(byref(self._effect), c_int32(opcode), c_int32(index), c_int(value), ptr, c_float(opt))
+        output = self._effect.dispatcher(byref(self._effect), c_int32(opcode), c_int32(index), c_int(value), ptr, c_float(opt))
         return output
 
-    def get_parameter(self, i):
-        # self._effect.get_parameter.restype = c_void_p
-        # self._effect.get_parameter.argtypes = [POINTER(AEffect), c_int]
-        value = self._effect.get_parameter(byref(self._effect), c_int(i))
-        return value
+    # Parameters
+    #
+    def _get_param_attr(self, index, opcode):
+        p_char = pointer(c_char())
+        self._dispatch(opcode, index=index, ptr=p_char)
+        name = ''
+        for i in range(VstStringConstants.kVstMaxParamStrLen):
+            char = p_char[i]
+            if char:
+                name += char.decode()
+            else:
+                break
+        return name
 
-    def set_parameter(self, index, value):
-        # self._effect.set_parameter.restype = c_void_p
-        # self._effect.set_parameter.argtypes = [POINTER(AEffect), c_int, c_float]
+    def get_param_name(self, index):
+        return self._get_param_attr(index, AEffectOpcodes.effGetParamName)
+
+    def get_param_label(self, index):
+        return self._get_param_attr(index, AEffectOpcodes.effGetParamLabel)
+
+    def get_param_display(self, index):
+        return self._get_param_attr(index, AEffectOpcodes.effGetParamDisplay)
+
+    def get_param_value(self, index):
+        return self._effect.get_parameter(byref(self._effect), c_int(index))
+
+    def set_param_value(self, index, value):
         self._effect.set_parameter(byref(self._effect), index, value)
 
+    def get_param_properties(self, index):
+        p = pointer(VstParameterProperties())
+        # FIXME hard-coded 56
+        self._dispatch(56, index=index, ptr=p)
+        return p.contents
+
+    @property
+    def vst_version(self):
+        # FIXME hard-coded
+        return self._dispatch(58)
+
+    @property
+    def num_midi_in(self):
+        # FIXME again
+        return self._dispatch(60)
+
+    @property
+    def num_midi_out(self):
+        # FIXME again
+        return self._dispatch(61)
+
+    def get_input_properties(self, index):
+        ptr = pointer(VstPinProperties())
+        # FIXME again
+        is_supported = self._dispatch(33, index=index, ptr=ptr)
+        print(is_supported)
+        return 'abc'
+
+    def get_output_properties(self, index):
+        ptr = pointer(VstPinProperties())
+        # FIXME again
+        is_supported = self._dispatch(34, index=index, ptr=ptr)
+        return ptr.contents
+
+    #
     def __getattr__(self, attr):
         """We also try getattr(self._effect, attr) so we don't have to wrap all of those."""
         try:
