@@ -1,5 +1,5 @@
 from ctypes import (cdll, Structure, POINTER, CFUNCTYPE,
-                    c_void_p, c_int, c_float, c_int32, c_double, c_char,
+                    c_void_p, c_int, c_float, c_int32, c_double, c_char, c_int16,
                     addressof, byref, pointer)
 from enum import IntEnum
 
@@ -170,15 +170,28 @@ class AEffectOpcodes(IntEnum):
 
 class VstStringConstants:
     # used for #effGetProgramName, #effSetProgramName, #effGetProgramNameIndexed
-    kVstMaxProgNameLen   = 24
+    kVstMaxProgNameLen = 24
     # used for #effGetParamLabel, #effGetParamDisplay, #effGetParamName
-    kVstMaxParamStrLen   = 8
+    kVstMaxParamStrLen = 8
     # used for #effGetVendorString, #audioMasterGetVendorString
-    kVstMaxVendorStrLen  = 64
+    kVstMaxVendorStrLen = 64
     # used for #effGetProductString, #audioMasterGetProductString
     kVstMaxProductStrLen = 64
     # used for #effGetEffectName
     kVstMaxEffectNameLen = 32
+
+
+class Vst2StringConstants:
+    # used for #MidiProgramName, #MidiProgramCategory, #MidiKeyName, #VstSpeakerProperties, #VstPinProperties
+    kVstMaxNameLen = 64
+    # used for #VstParameterProperties->label, #VstPinProperties->label
+    kVstMaxLabelLen = 64
+    # used for #VstParameterProperties->shortLabel, #VstPinProperties->shortLabel
+    kVstMaxShortLabelLen = 8
+    # used for #VstParameterProperties->label
+    kVstMaxCategLabelLen = 24
+    # used for #VstAudioFile->name
+    kVstMaxFileNameLen = 100
 
 
 class AEffect(Structure):
@@ -235,14 +248,19 @@ class VstParameterProperties(Structure):
         ('step_float', c_float),
         ('small_step_float', c_float),
         ('large_step_float', c_float),
-        ('label', c_char * 64),  # FIXME remove hard-coded 64
+        ('label', c_char * Vst2StringConstants.kVstMaxLabelLen),
         ('flags', c_int32),
         ('min_int', c_int32),
         ('max_int', c_int32),
         ('step_int', c_int32),
         ('large_step_int', c_int32),
-        ('short_label', c_char * 8),  # FIXME same
-        # FIXME not finished
+        ('short_label', c_char * Vst2StringConstants.kVstMaxShortLabelLen),
+        ('display_index', c_int16),
+        ('category', c_int16),
+        ('num_params_in_category', c_int16),
+        ('reserved', c_int16),
+        ('category_label', c_char * Vst2StringConstants.kVstMaxCategLabelLen),
+        ('future', c_char * 16),
     ]
 
 
@@ -257,3 +275,125 @@ class VstPinProperties(Structure):
         # short name (recommende 6 + delimiter)
         ('short_label', c_char * 8),  # FIXME same
     ]
+
+
+# Note: In python3.6 we could use `IntFlag`.
+class VstParameterFlags(IntEnum):
+    # parameter is a switch (on/off)
+    kVstParameterIsSwitch = 1 << 0
+    # minInteger, maxInteger valid
+    kVstParameterUsesIntegerMinMax = 1 << 1
+    # stepFloat, smallStepFloat, largeStepFloat valid
+    kVstParameterUsesFloatStep = 1 << 2
+    # stepInteger, largeStepInteger valid
+    kVstParameterUsesIntStep = 1 << 3
+    # displayIndex valid
+    kVstParameterSupportsDisplayIndex = 1 << 4
+    # category, etc. valid
+    kVstParameterSupportsDisplayCategory = 1 << 5
+    #  set if parameter value can ramp up/down
+    kVstParameterCanRamp = 1 << 6
+
+class VstEvent(Structure):
+    _fields_ = [
+        # @see VstEventTypes
+        ('type', c_int32),
+        # size of this event, excl. type and byteSize
+        ('byte_size', c_int32),
+        # sample frames related to the current block start sample position
+        ('delta_frames', c_int32),
+        # generic flags, none defined yet
+        ('flags', c_int32),
+        # data size may vary, depending on event type
+        ('data', c_char * 16),
+    ]
+
+
+class VstEventTypes(IntEnum):
+    # MIDI event  @see VstMidiEvent
+    kVstMidiType = 1
+    # \deprecated unused event type
+    # DECLARE_VST_DEPRECATED (kVstAudioType),
+    # \deprecated unused event type
+    # DECLARE_VST_DEPRECATED (kVstVideoType),
+    # \deprecated unused event type
+    # DECLARE_VST_DEPRECATED (kVstParameterType),
+    # \deprecated unused event type
+    # DECLARE_VST_DEPRECATED (kVstTriggerType),
+    # MIDI system exclusive  @see VstMidiSysexEvent
+    kVstSysExType = 6
+
+
+class VstEvents(Structure):
+    _fields_ = [
+        # number of Events in array
+        ('num_events', c_int32),
+        # zero (Reserved for future use)
+        ('reserved', c_int),
+        # event pointer array, variable size
+        ('events', POINTER(VstEvent) * 2),
+    ]
+
+
+class VstMidiEvent(Structure):
+    _fields_ = [
+        # kVstMidiType
+        ('type', c_int32),
+        # sizeof (VstMidiEvent)
+        ('byte_size', c_int32),
+        # sample frames related to the current block start sample position
+        ('delta_frames', c_int32),
+        # @see VstMidiEventFlags
+        ('flags', c_int32),
+        # (in sample frames) of entire note, if available, else 0
+        ('note_length', c_int32),
+        # offset (in sample frames) into note from note start if available, else 0
+        ('note_offset', c_int32),
+        # 1 to 3 MIDI bytes; midiData[3] is reserved (zero)
+        ('midi_data', c_char * 4),
+        # -64 to +63 cents; for scales other than 'well-tempered' ('microtuning')
+        ('detune', c_char),
+        # Note Off Velocity [0, 127]
+        ('note_off_velocity', c_char),
+        # zero (Reserved for future use)
+        ('reserved1', c_char),
+        # zero (Reserved for future use)
+        ('reserved2', c_char),
+    ]
+
+
+# Note: In python3.6 we could use `IntFlag`.
+class VstMidiEventFlags(IntEnum):
+    #  means that this event is played life (not in playback from a sequencer track).
+    # This allows the Plug-In to handle these flagged events with higher priority, especially when
+    # the Plug-In has a big latency (AEffect::initialDelay)
+    kVstMidiEventIsRealtime = 1 << 0
+
+
+class VstPlugCategory(IntEnum):
+    # Unknown, category not implemented
+    kPlugCategUnknown = 0
+    # Simple Effect
+    kPlugCategEffect = 1
+    # VST Instrument (Synths, samplers,...)
+    kPlugCategSynth = 2
+    # Scope, Tuner, ...
+    kPlugCategAnalysis = 3
+    # Dynamics, ...
+    kPlugCategMastering = 4
+    # Panners, ...
+    kPlugCategSpacializer = 5
+    # Delays and Reverbs
+    kPlugCategRoomFx = 6
+    # Dedicated surround processor
+    kPlugSurroundFx = 7
+    # Denoiser, ...
+    kPlugCategRestoration = 8
+    # Offline Process
+    kPlugCategOfflineProcess = 9
+    # Plug-in is container of other plug-ins  @see effShellGetNextPlugin
+    kPlugCategShell = 10
+    # ToneGenerator, ...
+    kPlugCategGenerator = 11
+    # Marker to count the categories
+    kPlugCategMaxCount = 12

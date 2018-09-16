@@ -9,10 +9,12 @@ from .vstwrap import (
     VstStringConstants,
     VstPinProperties,
     VstParameterProperties,
+    VstPlugCategory,
 )
 
 
 # define kEffectMagic CCONST ('V', 's', 't', 'P')
+# or: MAGIC = int.from_bytes(b'VstP', 'big')
 MAGIC = 1450406992
 
 
@@ -73,37 +75,44 @@ class VstPlugin:
 
     def get_param_properties(self, index):
         p = pointer(VstParameterProperties())
-        # FIXME hard-coded 56
-        self._dispatch(56, index=index, ptr=p)
+        self._dispatch(AEffectOpcodes.effGetParameterProperties, index=index, ptr=p)
         return p.contents
 
     @property
     def vst_version(self):
-        # FIXME hard-coded
-        return self._dispatch(58)
+        return self._dispatch(AEffectOpcodes.effGetVstVersion)
 
     @property
     def num_midi_in(self):
-        # FIXME again
-        return self._dispatch(60)
+        return self._dispatch(AEffectOpcodes.effGetNumMidiInputChannels)
 
     @property
     def num_midi_out(self):
-        # FIXME again
-        return self._dispatch(61)
+        return self._dispatch(AEffectOpcodes.effGetNumMidiOutputChannels)
 
     def get_input_properties(self, index):
         ptr = pointer(VstPinProperties())
-        # FIXME again
-        is_supported = self._dispatch(33, index=index, ptr=ptr)
-        print(is_supported)
-        return 'abc'
+        is_supported = self._dispatch(AEffectOpcodes.effGetInputProperties, index=index, ptr=ptr)
+        ret = ptr.contents
+        ret.is_supported = is_supported
+        return ret
 
     def get_output_properties(self, index):
         ptr = pointer(VstPinProperties())
-        # FIXME again
-        is_supported = self._dispatch(34, index=index, ptr=ptr)
-        return ptr.contents
+        is_supported = self._dispatch(AEffectOpcodes.effGetOutputProperties, index=index, ptr=ptr)
+        ret = ptr.contents
+        ptr.is_supported = is_supported
+        return ret
+
+    @property
+    def plug_category(self):
+        return VstPlugCategory(self._dispatch(AEffectOpcodes.effGetPlugCategory))
+
+    # Processing
+    #
+    def process_events(self, vst_events):
+        self._dispatch(AEffectOpcodes.effProcessEvents, ptr=byref(vst_events))
+
 
     #
     def __getattr__(self, attr):

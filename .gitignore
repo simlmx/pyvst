@@ -9,3 +9,4 @@
 /tmp
 /.venv
 /pyvst.egg-info
+/.pytest_cache
