@@ -1,6 +1,6 @@
 from ctypes import (cdll, Structure, POINTER, CFUNCTYPE,
                     c_void_p, c_int, c_float, c_int32, c_double, c_char,
-                    addressof, byref, pointer)
+                    addressof, byref, pointer, cast, string_at, create_string_buffer)
 from .vstwrap import (
     AudioMasterOpcodes,
     AEffect,
@@ -22,8 +22,8 @@ def _audio_master_callback(effect, opcode, index, value, ptr, opt):
     if opcode == AudioMasterOpcodes.audioMasterVersion.value:
         return 2400
     else:
-        raise NotImplementedError('audio master call back opcode "{opcode}" not supported yet'.format(opcode=opcode))
-
+        print('WARNING: audio master call back opcode "{}" not supported yet'.format(opcode))
+        return 0
 
 class VstPlugin:
     def __init__(self, filename):
@@ -37,6 +37,18 @@ class VstPlugin:
         if self.vst_version != 2400:
             print('Warning: this plugin is not a VST2.4 plugin')
 
+    def open(self):
+        self._dispatch(AEffectOpcodes.effOpen)
+
+    def close(self):
+        self._dispatch(AEffectOpcodes.effClose)
+
+    def resume(self):
+        self._dispatch(AEffectOpcodes.effMainsChanged, value=1)
+
+    def suspend(self):
+        self._dispatch(AEffectOpcodes.effMainsChanged, value=0)
+
     def _dispatch(self, opcode, index=0, value=0, ptr=None, opt=0.):
         if ptr is None:
             ptr = c_void_p(None)
@@ -47,16 +59,11 @@ class VstPlugin:
     # Parameters
     #
     def _get_param_attr(self, index, opcode):
-        p_char = pointer(c_char())
-        self._dispatch(opcode, index=index, ptr=p_char)
-        name = ''
-        for i in range(VstStringConstants.kVstMaxParamStrLen):
-            char = p_char[i]
-            if char:
-                name += char.decode()
-            else:
-                break
-        return name
+        # It should be VstStringConstants.kVstMaxParamStrLen == 8 but I've encountered some VST
+        # with more that would segfault.
+        buf = create_string_buffer(64)
+        self._dispatch(opcode, index=index, ptr=byref(buf))
+        return string_at(buf).decode()
 
     def get_param_name(self, index):
         return self._get_param_attr(index, AEffectOpcodes.effGetParamName)
@@ -74,9 +81,9 @@ class VstPlugin:
         self._effect.set_parameter(byref(self._effect), index, value)
 
     def get_param_properties(self, index):
-        p = pointer(VstParameterProperties())
-        self._dispatch(AEffectOpcodes.effGetParameterProperties, index=index, ptr=p)
-        return p.contents
+        props = VstParameterProperties()
+        self._dispatch(AEffectOpcodes.effGetParameterProperties, index=index, ptr=byref(props))
+        return props
 
     @property
     def vst_version(self):
@@ -91,18 +98,17 @@ class VstPlugin:
         return self._dispatch(AEffectOpcodes.effGetNumMidiOutputChannels)
 
     def get_input_properties(self, index):
-        ptr = pointer(VstPinProperties())
-        is_supported = self._dispatch(AEffectOpcodes.effGetInputProperties, index=index, ptr=ptr)
-        ret = ptr.contents
-        ret.is_supported = is_supported
-        return ret
+        props = VstPinProperties()
+        is_supported = self._dispatch(AEffectOpcodes.effGetInputProperties, index=index,
+                                      ptr=byref(props))
+        props.is_supported = is_supported
+        return props
 
     def get_output_properties(self, index):
-        ptr = pointer(VstPinProperties())
-        is_supported = self._dispatch(AEffectOpcodes.effGetOutputProperties, index=index, ptr=ptr)
-        ret = ptr.contents
-        ptr.is_supported = is_supported
-        return ret
+        props = VstPinProperties()
+        is_supported = self._dispatch(AEffectOpcodes.effGetOutputProperties, index=index, ptr=byref(props))
+        props.is_supported = is_supported
+        return props
 
     @property
     def plug_category(self):
@@ -110,9 +116,43 @@ class VstPlugin:
 
     # Processing
     #
+    def _get_data(self, sample_frames, num_chan):
+        p_float = POINTER(c_float)
+
+        out = (p_float * num_chan)()
+        for i in range(num_chan):
+            out[i] = (c_float * sample_frames)()
+            # for j in range(sample_frames):
+            #     out[i][j] = float(i * sample_frames + j)
+        return out
+
+    def process(self, input=None, sample_frames=None):
+        if input is not None:
+            raise NotImplementedError(
+                'We only support VstI for the moment so there should be no audio input')
+
+        if sample_frames is None:
+            raise ValueError('You must provide `sample_frames` where there is no input')
+
+        input = self._get_data(sample_frames, self.num_inputs)
+        output = self._get_data(sample_frames, self.num_outputs)
+
+        self._effect.process_replacing(
+            byref(self._effect),
+            input,
+            output,
+            sample_frames
+        )
+        return output
+
     def process_events(self, vst_events):
         self._dispatch(AEffectOpcodes.effProcessEvents, ptr=byref(vst_events))
 
+    def set_block_size(self, max_block_size):
+        self._dispatch(AEffectOpcodes.effSetBlockSize, value=max_block_size)
+
+    def set_sample_rate(self, sample_rate):
+        self._dispatch(AEffectOpcodes.effSetSampleRate, opt=sample_rate)
 
     #
     def __getattr__(self, attr):

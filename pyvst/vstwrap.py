@@ -200,27 +200,27 @@ class AEffect(Structure):
 
 AUDIO_MASTER_CALLBACK_TYPE = CFUNCTYPE(c_void_p, POINTER(AEffect), c_int32, c_int32, c_int, c_void_p, c_float)
 # typedef VstIntPtr (VSTCALLBACK *AEffectDispatcherProc) (AEffect* effect, VstInt32 opcode, VstInt32 index, VstIntPtr value, void* ptr, float opt);
-AEFFECT_DISPATCHER_PROC_TYPE = CFUNCTYPE(c_int, POINTER(AEffect), c_int32, c_int32, c_int, c_void_p, c_float)
+_AEFFECT_DISPATCHER_PROC_TYPE = CFUNCTYPE(c_int, POINTER(AEffect), c_int32, c_int32, c_int, c_void_p, c_float)
 # typedef void (VSTCALLBACK *AEffectProcessProc) (AEffect* effect, float** inputs, float** outputs, VstInt32 sampleFrames);
 # AEFFECT_PROCESS_PROC_TYPE = CFUNCTYPE(c_void_p,
 #                                       POINTER(AEffect),
 #                                       POINTER(POINTER(c_float)),
 #                                       POINTER(POINTER(c_float)),
 #                                       c_int32,)
-get_parameter_type = CFUNCTYPE(c_float, POINTER(AEffect), c_int32)
-set_parameter_type = CFUNCTYPE(c_void_p, POINTER(AEffect), c_int32, c_float)
+_GET_PARAMETER_TYPE = CFUNCTYPE(c_float, POINTER(AEffect), c_int32)
+_SET_PARAMETER_TYPE = CFUNCTYPE(None, POINTER(AEffect), c_int32, c_float)
 # typedef void (VSTCALLBACK *AEffectProcessProc) (AEffect* effect, float** inputs, float** outputs, VstInt32 sampleFrames);
-_AEFFECT_PROCESS_PROC = CFUNCTYPE(c_void_p, POINTER(AEffect), POINTER(POINTER(c_float)), POINTER(POINTER(c_float)), c_int32)
+_AEFFECT_PROCESS_PROC = CFUNCTYPE(None, POINTER(AEffect), POINTER(POINTER(c_float)), POINTER(POINTER(c_float)), c_int32)
 # typedef void (VSTCALLBACK *AEffectProcessDoubleProc) (AEffect* effect, double** inputs, double** outputs, VstInt32 sampleFrames);
-_AEFFECT_PROCESS_DOUBLE_PROC = CFUNCTYPE(c_void_p, POINTER(AEffect), POINTER(POINTER(c_double)), POINTER(POINTER(c_double)), c_int32)
+_AEFFECT_PROCESS_DOUBLE_PROC = CFUNCTYPE(None, POINTER(AEffect), POINTER(POINTER(c_double)), POINTER(POINTER(c_double)), c_int32)
 
 
 AEffect._fields_ = [
     ('magic', c_int32),
-    ('dispatcher', AEFFECT_DISPATCHER_PROC_TYPE),
+    ('dispatcher', _AEFFECT_DISPATCHER_PROC_TYPE),
     ('_process', c_void_p),
-    ('set_parameter', set_parameter_type),
-    ('get_parameter', get_parameter_type),
+    ('set_parameter', _SET_PARAMETER_TYPE),
+    ('get_parameter', _GET_PARAMETER_TYPE),
     ('num_programs', c_int32),
     ('num_params', c_int32),
     ('num_inputs', c_int32),
@@ -231,7 +231,7 @@ AEffect._fields_ = [
     ('initial_delay', c_int32),
     ('_realQualities', c_int32),
     ('_offQualities', c_int32),
-    ('_ioRatio', c_int32),
+    ('_ioRatio', c_float),
     ('object', c_void_p),
     ('user', c_void_p),
     ('unique_id', c_int32),
@@ -293,6 +293,34 @@ class VstParameterFlags(IntEnum):
     kVstParameterSupportsDisplayCategory = 1 << 5
     #  set if parameter value can ramp up/down
     kVstParameterCanRamp = 1 << 6
+
+
+class VstAEffectFlags(IntEnum):
+    # set if the plug-in provides a custom editor
+    effFlagsHasEditor = 1 << 0
+    # supports replacing process mode (which should the default mode in VST 2.4)
+    effFlagsCanReplacing = 1 << 4
+    # program data is handled in formatless chunks
+    effFlagsProgramChunks = 1 << 5
+    # plug-in is a synth (VSTi), Host may assign mixer channels for its outputs
+    effFlagsIsSynth = 1 << 8
+    # plug-in does not produce sound when input is all silence
+    effFlagsNoSoundInStop = 1 << 9
+
+    # plug-in supports double precision processing
+    effFlagsCanDoubleReplacing = 1 << 12
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effFlagsHasClip) = 1 << 1,
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effFlagsHasVu)   = 1 << 2,
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effFlagsCanMono) = 1 << 3,
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effFlagsExtIsAsync)   = 1 << 10,
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (effFlagsExtHasBuffer) = 1 << 11
+
 
 class VstEvent(Structure):
     _fields_ = [

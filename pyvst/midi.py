@@ -2,10 +2,6 @@ from ctypes import sizeof, c_char, cast, byref, POINTER
 from .vstwrap import VstMidiEvent, VstEventTypes, VstEvent, VstEvents
 
 
-_NOTE_ON = b'\x80'[0]
-_NOTE_OFF = b'\x90'[0]
-
-
 def midi_data_as_bytes(note, velocity=100, type_='note_on', chan=1):
     """
     Channels go from 1 to 16
@@ -51,5 +47,3 @@ def midi_note_events(note, velocity=100, channel=1):
     )
 
     return events
-
-
