@@ -8,7 +8,7 @@ setup(
     author='Simon Lemieux',
     author_email='lemieux.simon (at) gmail (dot) (you know what)',
     url='https://github.com/simlmx/pyvst',
-    packages = find_packages('pyvst', exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=[],
     extra_requires={
         'dev': [
