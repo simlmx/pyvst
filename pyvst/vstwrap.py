@@ -226,8 +226,8 @@ AEffect._fields_ = [
     ('num_inputs', c_int32),
     ('num_outputs', c_int32),
     ('flags', c_int32),
-    ('resvd1', c_int),
-    ('resvd2', c_int),
+    ('resvd1', c_void_p),
+    ('resvd2', c_void_p),
     ('initial_delay', c_int32),
     ('_realQualities', c_int32),
     ('_offQualities', c_int32),
@@ -357,7 +357,7 @@ class VstEvents(Structure):
         # number of Events in array
         ('num_events', c_int32),
         # zero (Reserved for future use)
-        ('reserved', c_int),
+        ('reserved', c_void_p),
         # event pointer array, variable size
         ('events', POINTER(VstEvent) * 2),
     ]

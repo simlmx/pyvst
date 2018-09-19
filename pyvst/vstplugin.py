@@ -1,6 +1,9 @@
 from ctypes import (cdll, Structure, POINTER, CFUNCTYPE,
                     c_void_p, c_int, c_float, c_int32, c_double, c_char,
                     addressof, byref, pointer, cast, string_at, create_string_buffer)
+
+import numpy
+
 from .vstwrap import (
     AudioMasterOpcodes,
     AEffect,
@@ -116,26 +119,25 @@ class VstPlugin:
 
     # Processing
     #
-    def _get_data(self, sample_frames, num_chan):
+    def _make_array(self, sample_frames, num_chan):
         p_float = POINTER(c_float)
 
-        out = (p_float * num_chan)()
+        out = (p_float * num_chan)(*[(c_float * sample_frames)() for i in range(num_chan)])
         for i in range(num_chan):
             out[i] = (c_float * sample_frames)()
-            # for j in range(sample_frames):
-            #     out[i][j] = float(i * sample_frames + j)
         return out
 
     def process(self, input=None, sample_frames=None):
-        if input is not None:
+        if input is None:
+            input = self._make_array(sample_frames, self.num_inputs)
+        else:
             raise NotImplementedError(
                 'We only support VstI for the moment so there should be no audio input')
 
         if sample_frames is None:
             raise ValueError('You must provide `sample_frames` where there is no input')
 
-        input = self._get_data(sample_frames, self.num_inputs)
-        output = self._get_data(sample_frames, self.num_outputs)
+        output = self._make_array(sample_frames, self.num_outputs)
 
         self._effect.process_replacing(
             byref(self._effect),
@@ -143,6 +145,9 @@ class VstPlugin:
             output,
             sample_frames
         )
+
+        output = numpy.vstack([numpy.ctypeslib.as_array(output[i], shape=(sample_frames,))
+                               for i in range(self.num_outputs)])
         return output
 
     def process_events(self, vst_events):

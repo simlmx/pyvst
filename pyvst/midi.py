@@ -23,20 +23,22 @@ def midi_data_as_bytes(note, velocity=100, type_='note_on', chan=1):
     ])
 
 
-def midi_note_events(note, velocity=100, channel=1):
+def midi_note_events(note, duration, velocity=100, channel=1):
     """
     Generates a note on / note off events pair ready to be processed by a Vsti.
+
+    duration: duration of the not in frames
     """
     note_on = VstMidiEvent(
         type=VstEventTypes.kVstMidiType,
         byte_size=sizeof(VstMidiEvent),
-        delta_frames=0,  # ??
+        delta_frames=0,
         flags=0,
-        note_length=100,
+        note_length=duration,
         note_offset=0,
         midi_data=midi_data_as_bytes(note, velocity, 'note_on', channel),
         detune=0,
-        note_off_velocity=c_char(0), # ?
+        note_off_velocity=c_char(0),
     )
 
     note_on = cast(byref(note_on), POINTER(VstEvent))
