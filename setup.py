@@ -9,7 +9,9 @@ setup(
     author_email='lemieux.simon (at) gmail (dot) (you know what)',
     url='https://github.com/simlmx/pyvst',
     packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
-    install_requires=[],
+    install_requires=[
+        'numpy>=1.15.1'
+    ],
     extra_requires={
         'dev': [
             'pytest>=3.8.0'
