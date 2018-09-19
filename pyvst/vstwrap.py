@@ -14,6 +14,114 @@ class AudioMasterOpcodes(IntEnum):
     # no arguments  @see AudioEffect::masterIdle
     audioMasterIdle = 3
 
+    # \deprecated deprecated in VST 2.4 r2
+    # DECLARE_VST_DEPRECATED (audioMasterPinConnected)
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterWantMidi) = DECLARE_VST_DEPRECATED (audioMasterPinConnected) + 2,
+
+    # [return value]: #VstTimeInfo* or null if not supported [value]: request mask  @see VstTimeInfoFlags @see AudioEffectX::getTimeInfo
+    audioMasterGetTime = 7
+    # [ptr]: pointer to #VstEvents  @see VstEvents @see AudioEffectX::sendVstEventsToHost
+    audioMasterProcessEvents = 8
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterSetTime),
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterTempoAt),
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterGetNumAutomatableParameters),
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterGetParameterQuantization),
+
+    # [return value]: 1 if supported  @see AudioEffectX::ioChanged
+    audioMasterIOChanged = 13
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterNeedIdle),
+
+    # [index]: new width [value]: new height [return value]: 1 if supported  @see AudioEffectX::sizeWindow
+    audioMasterSizeWindow = 15
+    # [return value]: current sample rate  @see AudioEffectX::updateSampleRate
+    audioMasterGetSampleRate = 16
+    # [return value]: current block size  @see AudioEffectX::updateBlockSize
+    audioMasterGetBlockSize = 17
+    # [return value]: input latency in audio samples  @see AudioEffectX::getInputLatency
+    audioMasterGetInputLatency = 18
+    # [return value]: output latency in audio samples  @see AudioEffectX::getOutputLatency
+    audioMasterGetOutputLatency = 19
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterGetPreviousPlug),
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterGetNextPlug),
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterWillReplaceOrAccumulate),
+
+    # [return value]: current process level  @see VstProcessLevels
+    audioMasterGetCurrentProcessLevel = 23
+    # [return value]: current automation state  @see VstAutomationStates
+    audioMasterGetAutomationState = 24
+
+    # [index]: numNewAudioFiles [value]: numAudioFiles [ptr]: #VstAudioFile*  @see AudioEffectX::offlineStart
+    audioMasterOfflineStart = 25
+    # [index]: bool readSource [value]: #VstOfflineOption* @see VstOfflineOption [ptr]: #VstOfflineTask*  @see VstOfflineTask @see AudioEffectX::offlineRead
+    audioMasterOfflineRead = 26
+    # @see audioMasterOfflineRead @see AudioEffectX::offlineRead
+    audioMasterOfflineWrite = 27
+    # @see AudioEffectX::offlineGetCurrentPass
+    audioMasterOfflineGetCurrentPass = 28
+    # @see AudioEffectX::offlineGetCurrentMetaPass
+    audioMasterOfflineGetCurrentMetaPass = 29
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterSetOutputSampleRate),
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterGetOutputSpeakerArrangement),
+
+    # [ptr]: char buffer for vendor string, limited to #kVstMaxVendorStrLen  @see AudioEffectX::getHostVendorString
+    audioMasterGetVendorString = 32
+    # [ptr]: char buffer for vendor string, limited to #kVstMaxProductStrLen  @see AudioEffectX::getHostProductString
+    audioMasterGetProductString = 33
+    # [return value]: vendor-specific version  @see AudioEffectX::getHostVendorVersion
+    audioMasterGetVendorVersion = 34
+    # no definition, vendor specific handling  @see AudioEffectX::hostVendorSpecific
+    audioMasterVendorSpecific = 35
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterSetIcon),
+
+    # [ptr]: "can do" string [return value]: 1 for supported
+    audioMasterCanDo= 37
+    # [return value]: language code  @see VstHostLanguage
+    audioMasterGetLanguage = 38
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterOpenWindow),
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterCloseWindow),
+
+    # [return value]: FSSpec on MAC, else char*  @see AudioEffectX::getDirectory
+    audioMasterGetDirectory = 41
+    # no arguments
+    audioMasterUpdateDisplay = 42
+    # [index]: parameter index  @see AudioEffectX::beginEdit
+    audioMasterBeginEdit = 43
+    # [index]: parameter index  @see AudioEffectX::endEdit
+    audioMasterEndEdit = 44
+    # [ptr]: VstFileSelect* [return value]: 1 if supported  @see AudioEffectX::openFileSelector
+    audioMasterOpenFileSelector = 45
+    # [ptr]: VstFileSelect*  @see AudioEffectX::closeFileSelector
+    audioMasterCloseFileSelector = 46
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterEditFile),
+
+    # \deprecated deprecated in VST 2.4 [ptr]: char[2048] or sizeof (FSSpec) [return value]: 1 if supported  @see AudioEffectX::getChunkFile
+    # DECLARE_VST_DEPRECATED (audioMasterGetChunkFile),
+
+    # \deprecated deprecated in VST 2.4
+    # DECLARE_VST_DEPRECATED (audioMasterGetInputSpeakerArrangement)
+
 
 class AEffectOpcodes(IntEnum):
     # no arguments  @see AudioEffect::open
@@ -396,6 +504,38 @@ class VstMidiEventFlags(IntEnum):
     # This allows the Plug-In to handle these flagged events with higher priority, especially when
     # the Plug-In has a big latency (AEffect::initialDelay)
     kVstMidiEventIsRealtime = 1 << 0
+
+class VstTimeInfo(Structure):
+    __fields__ = [
+        # current Position in audio samples (always valid)
+        ('sample_pos', c_double),
+        # current Sample Rate in Herz (always valid)
+        ('sample_rate', c_double),
+        # System Time in nanoseconds (10^-9 second)
+        ('nano_seconds', c_double),
+        # Musical Position, in Quarter Note (1.0 equals 1 Quarter Note)
+        ('ppq_pos', c_double),
+        # current Tempo in BPM (Beats Per Minute)
+        ('tempo', c_double),
+        # last Bar Start Position, in Quarter Note
+        ('bar_start_pos', c_double),
+        # Cycle Start (left locator), in Quarter Note
+        ('cycle_start_pos', c_double),
+        # Cycle End (right locator), in Quarter Note
+        ('cycle_end_pos', c_double),
+        # Time Signature Numerator (e.g. 3 for 3/4)
+        ('time_sig_numerator', c_int32),
+        # Time Signature Denominator (e.g. 4 for 3/4)
+        ('time_sig_denominator', c_int32),
+        # SMPTE offset (in SMPTE subframes (bits; 1/80 of a frame)). The current SMPTE position can be calculated using #samplePos, #sampleRate, and #smpteFrameRate.
+        ('smpte_offset', c_int32),
+        # @see VstSmpteFrameRate
+        ('smpte_frame_rate', c_int32),
+        # MIDI Clock Resolution (24 Per Quarter Note), can be negative (nearest clock)
+        ('samples_to_next_clock', c_int32),
+        # @see VstTimeInfoFlags
+        ('flags', c_int32),
+    ]
 
 
 class VstPlugCategory(IntEnum):
