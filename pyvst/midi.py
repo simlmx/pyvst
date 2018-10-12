@@ -1,15 +1,15 @@
-from ctypes import sizeof, c_char, cast, byref, POINTER
-from .vstwrap import VstMidiEvent, VstEventTypes, VstEvent, VstEvents
+from ctypes import sizeof, cast, POINTER, pointer
+from .vstwrap import VstMidiEvent, VstEventTypes, VstEvent, get_vst_events_struct
 
 
 def midi_data_as_bytes(note, velocity=100, type_='note_on', chan=1):
     """
-    Channels go from 1 to 16
+    :param chan: Midi channel (those are 1-indexed)
     """
     if type_ == 'note_on':
-        type_byte = b'\x80'[0]
-    elif type_ == 'note_off':
         type_byte = b'\x90'[0]
+    elif type_ == 'note_off':
+        type_byte = b'\x80'[0]
     else:
         raise NotImplementedError('MIDI type {} not supported yet'.format(type_))
 
@@ -23,29 +23,38 @@ def midi_data_as_bytes(note, velocity=100, type_='note_on', chan=1):
     ])
 
 
-def midi_note_events(note, duration, velocity=100, channel=1):
+def midi_note_event(note, velocity=100, channel=1, type_='note_on', delta_frames=0):
     """
-    Generates a note on / note off events pair ready to be processed by a Vsti.
+    Generates a note (on or off) midi event (VstMidiEvent).
 
-    duration: duration of the not in frames
+    :param note: midi note number
+    :param velocity: 0-127
+    :param channel: 1-16
+    :param type_: "note_on" or "note_off"
+    :delta_frames: In how many frames should the event happen.
     """
     note_on = VstMidiEvent(
         type=VstEventTypes.kVstMidiType,
         byte_size=sizeof(VstMidiEvent),
-        delta_frames=0,
+        delta_frames=delta_frames,
         flags=0,
-        note_length=duration,
+        note_length=0,
         note_offset=0,
-        midi_data=midi_data_as_bytes(note, velocity, 'note_on', channel),
+        midi_data=midi_data_as_bytes(note, velocity, type_, channel),
         detune=0,
-        note_off_velocity=c_char(0),
+        note_off_velocity=127,
     )
+    return note_on
 
-    note_on = cast(byref(note_on), POINTER(VstEvent))
 
-    events = VstEvents(
-        num_events=1,
-        events=(POINTER(VstEvent) * 2)(note_on, None)
+def wrap_vst_events(midi_events):
+    """Wraps a list VstMidiEvent into a VstEvents structure."""
+    p_midi_events = [pointer(x) for x in midi_events]
+    p_midi_events = [cast(x, POINTER(VstEvent)) for x in p_midi_events]
+    p_array = (POINTER(VstEvent) * len(midi_events))
+    Struct = get_vst_events_struct(len(midi_events))
+    events = Struct(
+        num_events=len(midi_events),
+        events=p_array(*p_midi_events)
     )
-
     return events

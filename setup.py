@@ -12,9 +12,10 @@ setup(
     install_requires=[
         'numpy>=1.15.1'
     ],
-    extra_requires={
+    extras_require={
         'dev': [
-            'pytest>=3.8.0'
+            'pytest>=3.8.0',
+            'matplotlib>=3.0.0',
         ],
     }
 )

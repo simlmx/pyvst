@@ -17,7 +17,7 @@ class AudioMasterOpcodes(IntEnum):
     # \deprecated deprecated in VST 2.4 r2
     # DECLARE_VST_DEPRECATED (audioMasterPinConnected)
     # \deprecated deprecated in VST 2.4
-    # DECLARE_VST_DEPRECATED (audioMasterWantMidi) = DECLARE_VST_DEPRECATED (audioMasterPinConnected) + 2,
+    audioMasterWantMidi = 6
 
     # [return value]: #VstTimeInfo* or null if not supported [value]: request mask  @see VstTimeInfoFlags @see AudioEffectX::getTimeInfo
     audioMasterGetTime = 7
@@ -470,6 +470,19 @@ class VstEvents(Structure):
         ('events', POINTER(VstEvent) * 2),
     ]
 
+def get_vst_events_struct(num_events):
+    """Class factory to get a VstEvents class with the right length for the "events" field."""
+    class VstEventsN(Structure):
+        _fields_ = [
+            # number of Events in array
+            ('num_events', c_int32),
+            # zero (Reserved for future use)
+            ('reserved', c_void_p),
+            # event pointer array, variable size
+            ('events', POINTER(VstEvent) * num_events),
+        ]
+    return VstEventsN
+
 
 class VstMidiEvent(Structure):
     _fields_ = [
@@ -505,6 +518,7 @@ class VstMidiEventFlags(IntEnum):
     # the Plug-In has a big latency (AEffect::initialDelay)
     kVstMidiEventIsRealtime = 1 << 0
 
+
 class VstTimeInfo(Structure):
     __fields__ = [
         # current Position in audio samples (always valid)
@@ -536,6 +550,59 @@ class VstTimeInfo(Structure):
         # @see VstTimeInfoFlags
         ('flags', c_int32),
     ]
+
+class VstTimeInfoFlags(IntEnum):
+    # indicates that play, cycle or record state has changed
+    kVstTransportChanged = 1
+    # set if Host sequencer is currently playing
+    kVstTransportPlaying = 1 << 1
+    # set if Host sequencer is in cycle mode
+    kVstTransportCycleActive = 1 << 2
+    # set if Host sequencer is in record mode
+    kVstTransportRecording = 1 << 3
+    # set if automation write mode active (record parameter changes)
+    kVstAutomationWriting = 1 << 6
+    # set if automation read mode active (play parameter changes)
+    kVstAutomationReading = 1 << 7
+    # VstTimeInfo::nanoSeconds valid
+    kVstNanosValid = 1 << 8
+    # VstTimeInfo::ppqPos valid
+    kVstPpqPosValid = 1 << 9
+    # VstTimeInfo::tempo valid
+    kVstTempoValid = 1 << 10
+    # VstTimeInfo::barStartPos valid
+    kVstBarsValid = 1 << 11
+    # VstTimeInfo::cycleStartPos and VstTimeInfo::cycleEndPos valid
+    kVstCyclePosValid = 1 << 12
+    # VstTimeInfo::timeSigNumerator and VstTimeInfo::timeSigDenominator valid
+    kVstTimeSigValid = 1 << 13
+    # VstTimeInfo::smpteOffset and VstTimeInfo::smpteFrameRate valid
+    kVstSmpteValid = 1 << 14
+    # VstTimeInfo::samplesToNextClock valid
+    kVstClockValid = 1 << 15
+
+
+class VstAudioFileFlags(IntEnum):
+    # set by Host (in call #offlineNotify)
+    kVstOfflineReadOnly = 1 << 0
+    # set by Host (in call #offlineNotify)
+    kVstOfflineNoRateConversion = 1 << 1
+    # set by Host (in call #offlineNotify)
+    kVstOfflineNoChannelChange = 1 << 2
+    # set by plug-in (in call #offlineStart)
+    kVstOfflineCanProcessSelection = 1 << 10
+    # set by plug-in (in call #offlineStart)
+    kVstOfflineNoCrossfade = 1 << 11
+    # set by plug-in (in call #offlineStart)
+    kVstOfflineWantRead = 1 << 12
+    # set by plug-in (in call #offlineStart)
+    kVstOfflineWantWrite = 1 << 13
+    # set by plug-in (in call #offlineStart)
+    kVstOfflineWantWriteMarker = 1 << 14
+    # set by plug-in (in call #offlineStart)
+    kVstOfflineWantMoveCursor = 1 << 15
+    # set by plug-in (in call #offlineStart)
+    kVstOfflineWantSelect = 1 << 16
 
 
 class VstPlugCategory(IntEnum):

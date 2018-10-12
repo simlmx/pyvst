@@ -21,19 +21,21 @@ from .vstwrap import (
 MAGIC = 1450406992
 
 
-def _audio_master_callback(effect, opcode, index, value, ptr, opt):
-    if opcode == AudioMasterOpcodes.audioMasterVersion.value:
+def _default_audio_master_callback(effect, opcode, *args):
+    """Version naive audio master callback. This mimicks more than minimal host."""
+    if opcode == AudioMasterOpcodes.audioMasterVersion:
         return 2400
-    else:
-        print('WARNING: audio master call back opcode "{}" not supported yet'.format(opcode))
-        return 0
+    return 0
+
 
 class VstPlugin:
-    def __init__(self, filename):
+    def __init__(self, filename, audio_master_callback=None):
+        if audio_master_callback is None:
+            audio_master_callback = _default_audio_master_callback
         self._lib = cdll.LoadLibrary(filename)
         self._lib.VSTPluginMain.argtypes = [AUDIO_MASTER_CALLBACK_TYPE]
         self._lib.VSTPluginMain.restype = POINTER(AEffect)
-        self._effect = self._lib.VSTPluginMain(AUDIO_MASTER_CALLBACK_TYPE(_audio_master_callback)).contents
+        self._effect = self._lib.VSTPluginMain(AUDIO_MASTER_CALLBACK_TYPE(audio_master_callback)).contents
 
         assert self._effect.magic == MAGIC
 
@@ -61,6 +63,10 @@ class VstPlugin:
 
     # Parameters
     #
+    @property
+    def num_params(self):
+        return self._effect.numParams
+
     def _get_param_attr(self, index, opcode):
         # It should be VstStringConstants.kVstMaxParamStrLen == 8 but I've encountered some VST
         # with more that would segfault.
@@ -119,7 +125,8 @@ class VstPlugin:
 
     # Processing
     #
-    def _make_array(self, sample_frames, num_chan):
+    def _make_empty_array(self, sample_frames, num_chan):
+        """Initializes a pointer of pointer array."""
         p_float = POINTER(c_float)
 
         out = (p_float * num_chan)(*[(c_float * sample_frames)() for i in range(num_chan)])
@@ -129,15 +136,14 @@ class VstPlugin:
 
     def process(self, input=None, sample_frames=None):
         if input is None:
-            input = self._make_array(sample_frames, self.num_inputs)
+            input = self._make_empty_array(sample_frames, self.num_inputs)
         else:
-            raise NotImplementedError(
-                'We only support VstI for the moment so there should be no audio input')
+            input = (POINTER(c_float) * self.num_inputs)(*[row.ctypes.data_as(POINTER(c_float)) for row in input])
 
         if sample_frames is None:
             raise ValueError('You must provide `sample_frames` where there is no input')
 
-        output = self._make_array(sample_frames, self.num_outputs)
+        output = self._make_empty_array(sample_frames, self.num_outputs)
 
         self._effect.process_replacing(
             byref(self._effect),
@@ -160,6 +166,7 @@ class VstPlugin:
         self._dispatch(AEffectOpcodes.effSetSampleRate, opt=sample_rate)
 
     #
+    # TODO explicitely implement those, it makes it less confusing
     def __getattr__(self, attr):
         """We also try getattr(self._effect, attr) so we don't have to wrap all of those."""
         try:
