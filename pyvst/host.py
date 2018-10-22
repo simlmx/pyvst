@@ -112,7 +112,7 @@ class SimpleHost:
 
         # nb of frames before the note_off events
         noteoff_is_in = round(duration * self.sample_rate)
-        total_duration = round(duration * self.sample_rate)
+        total_duration = round(total_duration * self.sample_rate)
         note_on = midi_note_event(note, velocity)
 
         outputs = []
@@ -138,7 +138,13 @@ class SimpleHost:
         # Reload the plugin to clear its state
         self.load_vst()
 
-        return np.hstack(outputs)
+        # Concatenate all the output buffers
+        outputs = np.hstack(outputs)
+
+        # Cut the extra of the last buffer if need be, to respect the `total_duration`.
+        outputs = outputs[:, :total_duration]
+
+        return outputs
 
     def _audio_master_callback(self, effect, opcode, index, value, ptr, opt):
         if opcode == AudioMasterOpcodes.audioMasterVersion:

@@ -1,6 +1,7 @@
 from ctypes import (cdll, Structure, POINTER, CFUNCTYPE,
                     c_void_p, c_int, c_float, c_int32, c_double, c_char,
                     addressof, byref, pointer, cast, string_at, create_string_buffer)
+from warnings import warn
 
 import numpy
 
@@ -40,7 +41,7 @@ class VstPlugin:
         assert self._effect.magic == MAGIC
 
         if self.vst_version != 2400:
-            print('Warning: this plugin is not a VST2.4 plugin')
+            warn('This plugin is not a VST2.4 plugin.')
 
     def open(self):
         self._dispatch(AEffectOpcodes.effOpen)

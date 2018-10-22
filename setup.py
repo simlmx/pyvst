@@ -16,6 +16,7 @@ setup(
         'dev': [
             'pytest>=3.8.0',
             'matplotlib>=3.0.0',
+            'jupyter>=1.0.0',
         ],
     }
 )

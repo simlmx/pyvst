@@ -67,5 +67,6 @@ def test_host():
 
     # Try to play a note
     output = host.play_note(note=76, velocity=127, duration=.2, total_duration=3.)
+    assert output.shape == (2, 44100 * 3)
     # Make sure there was some noise!
     assert output.max() > .1
