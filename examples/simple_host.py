@@ -12,21 +12,23 @@ def _print_params(vst, max_params=10):
 
 
 def _main(vst_filename):
-    host = SimpleHost()
+    host = SimpleHost(sample_rate=48000.)
     host.load_vst(vst_filename)
 
     _print_params(host.vst)
 
     sound = host.play_note(note=64, duration=1., total_duration=2.)
     print(sound)
+    print(sound.shape)
 
-    host.vst.set_param_value(0, 1.0)
-    host.vst.set_param_value(1, 0.5)
+    host.vst.set_param_value(index=0, value=1.)
+    host.vst.set_param_value(index=1, value=0.5)
 
     _print_params(host.vst)
 
     sound = host.play_note(note=64, duration=1., total_duration=2.)
     print(sound)
+    print(sound.shape)
 
 
 if __name__ == '__main__':
