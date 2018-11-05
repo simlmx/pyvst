@@ -17,7 +17,7 @@ def _main(vst_filename):
 
     _print_params(host.vst)
 
-    sound = host.play_note(note=64, duration=1., total_duration=2.)
+    sound = host.play_note(note=64, note_duration=1.)
     print(sound)
     print(sound.shape)
 
@@ -26,7 +26,7 @@ def _main(vst_filename):
 
     _print_params(host.vst)
 
-    sound = host.play_note(note=64, duration=1., total_duration=2.)
+    sound = host.play_note(note=64, note_duration=1.)
     print(sound)
     print(sound.shape)
 

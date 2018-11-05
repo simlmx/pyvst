@@ -101,18 +101,34 @@ class SimpleHost:
         # We note the path so that we can easily reload it!
         self._vst_path = path_to_so_file
 
-    def play_note(self, note, duration, velocity=100, total_duration=None):
+    def play_note(self, note, note_duration, velocity=100, max_duration=60., min_duration=0.01,
+                  volume_threshold=0.000002):
         """
-        :param duration: duration between the note on and note off events, in seconds
-        :param total_duration: duration of the whole thing, because after the note off we can still
-            record
+        :param note_duration: Duration between the note on and note off midi events, in seconds.
+
+        The audio will then last between `min_duration` and `max_duration`, stopping when
+        sqrt(mean(signal ** 2)) falls under `volume_threshold` for a single buffer. For those
+        arguments, `None` means they are ignored.
         """
+
+        if max_duration is not None and max_duration < note_duration:
+            raise ValueError('max_duration ({}) is smaller than the midi note_duration ({})'
+                             .format(max_duration, note_duration))
+
+        if min_duration is not None and max_duration is not None and max_duration < min_duration:
+            raise ValueError('max_duration ({}) is smaller than min_duration ({})'
+                             .format(max_duration, min_duration))
+
         # Call this here to fail fast in case the VST has not been loaded
         self.vst
 
         # nb of frames before the note_off events
-        noteoff_is_in = round(duration * self.sample_rate)
-        total_duration = round(total_duration * self.sample_rate)
+        noteoff_is_in = round(note_duration * self.sample_rate)
+
+        # Convert the durations from seconds to frames
+        min_duration = round(min_duration * self.sample_rate)
+        max_duration = round(max_duration * self.sample_rate)
+
         note_on = midi_note_event(note, velocity)
 
         outputs = []
@@ -121,7 +137,10 @@ class SimpleHost:
 
         # note_on is at time 0 anyway so we can do it before the loop
         self.vst.process_events(wrap_vst_events([note_on]))
-        while self.transport.get_position() <= total_duration:
+        while True:
+            if max_duration is not None and self.transport.get_position() > max_duration:
+                break
+
             # If it's time for the note off
             if 0 <= noteoff_is_in < self.block_size:
                 note_off = midi_note_event(note, 0, type_='note_off', delta_frames=noteoff_is_in)
@@ -129,6 +148,13 @@ class SimpleHost:
 
             output = self.vst.process(input=None, sample_frames=self.block_size)
             outputs.append(output)
+
+            # If we are past the min_position, and if we have a volume_threshold, then we see if
+            # we have enough volume to continue.
+            if self.transport.get_position() > min_duration and volume_threshold:
+                rms = np.sqrt((output ** 2).mean())
+                if rms < volume_threshold:
+                    break
 
             # We move transport in the future
             self.transport.step(self.block_size)
@@ -141,8 +167,9 @@ class SimpleHost:
         # Concatenate all the output buffers
         outputs = np.hstack(outputs)
 
-        # Cut the extra of the last buffer if need be, to respect the `total_duration`.
-        outputs = outputs[:, :total_duration]
+        # Cut the extra of the last buffer if need be, to respect the `max_duration`.
+        if max_duration is not None:
+            outputs = outputs[:, :max_duration]
 
         return outputs
 

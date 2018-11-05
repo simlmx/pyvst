@@ -44,7 +44,7 @@ def test_transport_get_position_units():
     assert transport.get_position('beat') == beat_per_sec * (block_size * 2 / sample_rate)
 
 
-def test_host():
+def test_host_load_vst():
     host = SimpleHost()
     # TODO ship with some open source plugin
     with open('.test_plugin_path.txt') as f:
@@ -65,8 +65,30 @@ def test_host():
     # Now it works
     host.vst
 
-    # Try to play a note
-    output = host.play_note(note=76, velocity=127, duration=.2, total_duration=3.)
+
+def test_play_note():
+    host = SimpleHost()
+
+    # TODO ship with some open source plugin
+    with open('.test_plugin_path.txt') as f:
+        path = f.read().strip()
+
+    host.load_vst(path)
+
+    # small max_duration compared to midi duration
+    with pytest.raises(ValueError, match='is smaller than the midi note_duration'):
+        host.play_note(64, note_duration=2., max_duration=1.)
+
+    # smaller max_duration than min_duration
+    with pytest.raises(ValueError, match='is smaller than min_duration'):
+        host.play_note(64, note_duration=1., max_duration=1., min_duration=2.)
+
+    # Try to play a note with a given duration
+    output = host.play_note(note=76, velocity=127, note_duration=.2, max_duration=3., min_duration=3.)
     assert output.shape == (2, 44100 * 3)
     # Make sure there was some noise!
     assert output.max() > .1
+
+    # Automatic stopping of the sound
+    output = host.play_note(64, note_duration=0.1, max_duration=60.)
+    assert 44100 * 0.1 < output.shape[1] < 44100 * 58
