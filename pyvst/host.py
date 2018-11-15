@@ -80,15 +80,26 @@ class SimpleHost:
         :param path_to_so_file: Path to the .so file to use as a plugin. If we call this without
             any path, we will simply try to reload using the same path as the last call.
         """
+        reloading = False
         if path_to_so_file is None:
             if not self._vst_path:
                 raise RuntimeError('The first time, you must pass a path to the .so file.')
             path_to_so_file = self._vst_path
+            reloading = True
 
         if self._vst:
+            # If we are only reloading, let's note all the VST parameters so that we can put them
+            # back.
+            if reloading:
+                params = [self._vst.get_param_value(i) for i in range(self._vst.num_params)]
             del self._vst
 
         self._vst = VstPlugin(path_to_so_file, self._callback)
+
+        # If we are reloading the same VST, put back the parameters where they were.
+        if reloading:
+            for i, p in enumerate(params):
+                self._vst.set_param_value(i, p)
 
         # Is this really the best way to check for a synth?
         if self.vst.num_inputs != 0:
@@ -101,8 +112,8 @@ class SimpleHost:
         # We note the path so that we can easily reload it!
         self._vst_path = path_to_so_file
 
-    def play_note(self, note, note_duration, velocity=100, max_duration=60., min_duration=0.01,
-                  volume_threshold=0.000002):
+    def play_note(self, note=64, note_duration=.5, velocity=100, max_duration=60.,
+                  min_duration=0.01, volume_threshold=0.000002):
         """
         :param note_duration: Duration between the note on and note off midi events, in seconds.
 

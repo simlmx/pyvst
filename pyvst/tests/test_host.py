@@ -1,7 +1,22 @@
+import random
+
 import pytest
 
 from pyvst import SimpleHost
 from pyvst.host import Transport
+
+
+@pytest.fixture
+def host():
+    """SimpleHost containing a loaded vst."""
+    host = SimpleHost()
+
+    # TODO ship with some open source plugin
+    with open('.test_plugin_path.txt') as f:
+        path = f.read().strip()
+
+    host.load_vst(path)
+    return host
 
 
 def test_transport():
@@ -44,12 +59,8 @@ def test_transport_get_position_units():
     assert transport.get_position('beat') == beat_per_sec * (block_size * 2 / sample_rate)
 
 
-def test_host_load_vst():
+def test_host_load_vst_errors():
     host = SimpleHost()
-    # TODO ship with some open source plugin
-    with open('.test_plugin_path.txt') as f:
-        path = f.read().strip()
-
     # It should raise if we try to access host.vst before we actually load it
     with pytest.raises(RuntimeError, match='You must first load'):
         host.vst
@@ -58,22 +69,15 @@ def test_host_load_vst():
     with pytest.raises(RuntimeError, match='The first time, you must'):
         host.load_vst()
 
-    # Actually load it
-    host.load_vst(path)
+
+def test_host_load_vst(host):
     # Second time it's fine without params, it will just reload it.
     host.load_vst()
     # Now it works
     host.vst
 
 
-def test_play_note():
-    host = SimpleHost()
-
-    # TODO ship with some open source plugin
-    with open('.test_plugin_path.txt') as f:
-        path = f.read().strip()
-
-    host.load_vst(path)
+def test_play_note(host):
 
     # small max_duration compared to midi duration
     with pytest.raises(ValueError, match='is smaller than the midi note_duration'):
@@ -92,3 +96,17 @@ def test_play_note():
     # Automatic stopping of the sound
     output = host.play_note(64, note_duration=0.1, max_duration=60.)
     assert 44100 * 0.1 < output.shape[1] < 44100 * 58
+
+
+def test_play_note_twice(host):
+    sound1 = host.play_note()
+    sound2 = host.play_note()
+    assert abs(sound1 - sound2).mean() < 0.001
+
+    # after changing all the parameters, it should still work
+    for i in range(host.vst.num_params):
+        host.vst.set_param_value(i, random.random())
+
+    sound1 = host.play_note()
+    sound2 = host.play_note()
+    assert abs(sound1 - sound2).mean() < 0.001

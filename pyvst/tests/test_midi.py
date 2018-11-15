@@ -24,8 +24,3 @@ def test_wrap_vst_events():
 
     note3 = events[2]
     note3 = ctypes.cast(note3, ctypes.POINTER(VstMidiEvent)).contents
-    print(note3.note_length)
-    print(note3.note_offset)
-    for x in note3.midi_data:
-        print(hex(x))
-    print(note3.detune)
