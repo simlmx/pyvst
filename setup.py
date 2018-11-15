@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pyvst',
-    version='0.2.0',
+    version='0.3.0',
     description='VST2.4 python wrapping using ctypes',
     author='Simon Lemieux',
     author_email='lemieux.simon (at) gmail (dot) (you know what)',

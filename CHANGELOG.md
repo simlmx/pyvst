@@ -1,5 +1,7 @@
 # Next Release
 
+# 0.3.0
+
 * Big fixes in SimpleHost + general cleaning. Also now `SimpleHost.play_note` as defaults for all
   arguments.
 
