@@ -1,5 +1,8 @@
 # Next Release
 
+* Capture the stdout/stderr of the plugin.
+* Change the default play_note max_duration to 5 seconds.
+
 # 0.3.0
 
 * Big fixes in SimpleHost + general cleaning. Also now `SimpleHost.play_note` as defaults for all
