@@ -1,11 +1,9 @@
-import contextlib
 from ctypes import (cdll, Structure, POINTER, CFUNCTYPE,
                     c_void_p, c_int, c_float, c_int32, c_double, c_char,
                     addressof, byref, pointer, cast, string_at, create_string_buffer)
 from warnings import warn
 
 import numpy
-from wurlitzer import pipes
 
 from .vstwrap import (
     AudioMasterOpcodes,
@@ -32,22 +30,14 @@ def _default_audio_master_callback(effect, opcode, *args):
 
 
 class VstPlugin:
-    def __init__(self, filename, audio_master_callback=None, verbose=False):
-        """
-        :param verbose: Set to True to show the plugin's stdout/stderr. By default (False),
-            we capture it.
-        """
-        self.verbose = verbose
-
+    def __init__(self, filename, audio_master_callback=None):
         if audio_master_callback is None:
             audio_master_callback = _default_audio_master_callback
         self._lib = cdll.LoadLibrary(filename)
         self._lib.VSTPluginMain.argtypes = [AUDIO_MASTER_CALLBACK_TYPE]
         self._lib.VSTPluginMain.restype = POINTER(AEffect)
 
-        # Capture stdout and stderr, unless in verbose mode
-        with pipes() if not verbose else contextlib.suppress():
-            self._effect = self._lib.VSTPluginMain(AUDIO_MASTER_CALLBACK_TYPE(audio_master_callback)).contents
+        self._effect = self._lib.VSTPluginMain(AUDIO_MASTER_CALLBACK_TYPE(audio_master_callback)).contents
 
         assert self._effect.magic == MAGIC
 
@@ -70,8 +60,7 @@ class VstPlugin:
         if ptr is None:
             ptr = c_void_p(None)
         # self._effect.dispatcher.argtypes = [POINTER(AEffect), c_int32, c_int32, c_int, c_void_p, c_float]
-        with pipes() if not self.verbose else contextlib.suppress():
-            output = self._effect.dispatcher(byref(self._effect), c_int32(opcode), c_int32(index), c_int(value), ptr, c_float(opt))
+        output = self._effect.dispatcher(byref(self._effect), c_int32(opcode), c_int32(index), c_int(value), ptr, c_float(opt))
         return output
 
     # Parameters
@@ -166,13 +155,12 @@ class VstPlugin:
 
         output = self._make_empty_array(sample_frames, self.num_outputs)
 
-        with pipes() if not self.verbose else contextlib.suppress():
-            self._effect.process_replacing(
-                byref(self._effect),
-                input,
-                output,
-                sample_frames
-            )
+        self._effect.process_replacing(
+            byref(self._effect),
+            input,
+            output,
+            sample_frames
+        )
 
         output = numpy.vstack([numpy.ctypeslib.as_array(output[i], shape=(sample_frames,))
                                for i in range(self.num_outputs)])

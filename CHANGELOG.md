@@ -1,5 +1,7 @@
 # Next Release
 
+* Revert the stdout/stderr capture as it caused other issues.
+
 # 0.4.0
 
 * Capture the stdout/stderr of the plugin. (79d33bd)
