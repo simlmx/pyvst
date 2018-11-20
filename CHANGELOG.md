@@ -1,7 +1,9 @@
 # Next Release
 
-* Capture the stdout/stderr of the plugin.
-* Change the default play_note max_duration to 5 seconds.
+# 0.4.0
+
+* Capture the stdout/stderr of the plugin. (79d33bd)
+* Change the default play_note max_duration to 5 seconds. (79d33bd)
 
 # 0.3.0
 
