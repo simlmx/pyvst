@@ -1,4 +1,4 @@
-from ctypes import addressof
+from ctypes import addressof, create_string_buffer
 from warnings import warn
 
 import numpy as np
@@ -56,6 +56,9 @@ class Transport:
 
 class SimpleHost:
     """Simple host that holds a single (synth) vst."""
+
+    _product_string = create_string_buffer(b'pyvst SimpleHost')
+
     def __init__(self, sample_rate=44100., tempo=120., block_size=512):
         self.sample_rate = sample_rate
         self.transport = Transport(sample_rate, tempo)
@@ -103,7 +106,8 @@ class SimpleHost:
 
         # Is this really the best way to check for a synth?
         if self.vst.num_inputs != 0:
-            raise RuntimeError('Your VST should had 0 inputs.')
+            warn('Your VST has {} inputs (instead of 0), is that normal for a synth?'.format(
+                self.vst.num_inputs))
 
         self.vst.set_sample_rate(self.sample_rate)
         self.vst.set_block_size(self.block_size)
@@ -185,6 +189,8 @@ class SimpleHost:
         return outputs
 
     def _audio_master_callback(self, effect, opcode, index, value, ptr, opt):
+        # Note that there are a lot of missing opcodes here, I basically add them as I see VST
+        # asking for them...
         if opcode == AudioMasterOpcodes.audioMasterVersion:
             return 2400
         # Deprecated but some VSTs still ask for it
@@ -226,6 +232,13 @@ class SimpleHost:
                 flags=flags,
             )
             return addressof(self._last_time_info)
+        elif opcode == AudioMasterOpcodes.audioMasterGetProductString:
+            return addressof(self._product_string)
+        elif opcode == AudioMasterOpcodes.audioMasterIOChanged:
+            return 0
+        elif opcode == AudioMasterOpcodes.audioMasterGetCurrentProcessLevel:
+            #This should mean "not supported by Host"
+            return 0
         else:
             warn('Audio master call back opcode "{}" not supported yet'.format(opcode))
         return 0

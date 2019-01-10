@@ -1,6 +1,6 @@
-from ctypes import (cdll, Structure, POINTER, CFUNCTYPE,
-                    c_void_p, c_int, c_float, c_int32, c_double, c_char,
-                    addressof, byref, pointer, cast, string_at, create_string_buffer)
+from ctypes import (cdll, POINTER,
+                    c_void_p, c_int, c_float, c_int32,
+                    byref, string_at, create_string_buffer)
 from warnings import warn
 
 import numpy
@@ -55,6 +55,11 @@ class VstPlugin:
 
     def suspend(self):
         self._dispatch(AEffectOpcodes.effMainsChanged, value=0)
+
+    def __del__(self):
+        # This seem to fix segmentation faults when the VstPlugin is garbage collected.
+        self.suspend()
+        self.close()
 
     def _dispatch(self, opcode, index=0, value=0, ptr=None, opt=0.):
         if ptr is None:

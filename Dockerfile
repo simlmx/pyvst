@@ -9,6 +9,9 @@ RUN apt-get update \
         libxinerama-dev \
         libasound-dev \
         libfreetype6 \
+        # For TyrellN6
+        libglib2.0 \
+        libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workdir/pyvst
