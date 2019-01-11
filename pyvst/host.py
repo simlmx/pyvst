@@ -76,12 +76,13 @@ class SimpleHost:
             raise RuntimeError('You must first load a vst using `self.load_vst`.')
         return self._vst
 
-    def load_vst(self, path_to_so_file=None):
+    def load_vst(self, path_to_so_file=None, verbose=False):
         """
         Loads a vst. If there was already a vst loaded, we will release it.
 
         :param path_to_so_file: Path to the .so file to use as a plugin. If we call this without
             any path, we will simply try to reload using the same path as the last call.
+        :param verbose: Set to False (default) to capture the VST's stdout/stderr.
         """
         reloading = False
         if path_to_so_file is None:
@@ -97,7 +98,7 @@ class SimpleHost:
                 params = [self._vst.get_param_value(i) for i in range(self._vst.num_params)]
             del self._vst
 
-        self._vst = VstPlugin(path_to_so_file, self._callback)
+        self._vst = VstPlugin(path_to_so_file, self._callback, verbose=verbose)
 
         # If we are reloading the same VST, put back the parameters where they were.
         if reloading:
