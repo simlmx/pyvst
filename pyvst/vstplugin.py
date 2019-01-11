@@ -12,10 +12,10 @@ from .vstwrap import (
     AEffect,
     AEffectOpcodes,
     AUDIO_MASTER_CALLBACK_TYPE,
-    VstStringConstants,
     VstPinProperties,
     VstParameterProperties,
     VstPlugCategory,
+    VstAEffectFlags,
 )
 
 
@@ -194,3 +194,7 @@ class VstPlugin:
 
     def set_sample_rate(self, sample_rate):
         self._dispatch(AEffectOpcodes.effSetSampleRate, opt=sample_rate)
+
+    @property
+    def is_synth(self):
+        return self._effect.flags & VstAEffectFlags.effFlagsIsSynth

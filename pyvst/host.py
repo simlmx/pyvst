@@ -105,10 +105,8 @@ class SimpleHost:
             for i, p in enumerate(params):
                 self._vst.set_param_value(i, p)
 
-        # Is this really the best way to check for a synth?
-        if self.vst.num_inputs != 0:
-            warn('Your VST has {} inputs (instead of 0), is that normal for a synth?'.format(
-                self.vst.num_inputs))
+        if not self._vst.is_synth:
+            raise RuntimeError('Your VST must be a synth!')
 
         self.vst.set_sample_rate(self.sample_rate)
         self.vst.set_block_size(self.block_size)
