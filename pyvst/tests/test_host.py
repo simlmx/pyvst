@@ -6,16 +6,11 @@ from pyvst import SimpleHost
 from pyvst.host import Transport
 
 
-@pytest.fixture
-def host():
+@pytest.fixture()
+def host(vst):
     """SimpleHost containing a loaded vst."""
     host = SimpleHost()
-
-    # TODO ship with some open source plugin
-    with open('.test_plugin_path.txt') as f:
-        path = f.read().strip()
-
-    host.load_vst(path)
+    host.load_vst(vst)
     return host
 
 
