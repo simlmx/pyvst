@@ -1,5 +1,5 @@
 import contextlib
-from ctypes import (cdll, POINTER,
+from ctypes import (cdll, POINTER, c_double,
                     c_void_p, c_int, c_float, c_int32,
                     byref, string_at, create_string_buffer)
 from warnings import warn
@@ -154,28 +154,40 @@ class VstPlugin:
 
     # Processing
     #
-    def _make_empty_array(self, sample_frames, num_chan):
+    def _make_empty_array(self, sample_frames, num_chan, c_type):
         """Initializes a pointer of pointer array."""
-        p_float = POINTER(c_float)
+        p_type = POINTER(c_type)
 
-        out = (p_float * num_chan)(*[(c_float * sample_frames)() for i in range(num_chan)])
+        out = (p_type * num_chan)(*[(c_type * sample_frames)() for i in range(num_chan)])
         for i in range(num_chan):
-            out[i] = (c_float * sample_frames)()
+            out[i] = (c_type * sample_frames)()
         return out
 
-    def process(self, input=None, sample_frames=None):
-        if input is None:
-            input = self._make_empty_array(sample_frames, self.num_inputs)
+    def process(self, input=None, sample_frames=None, double=None):
+
+        if double is None:
+            if self.can_double_replacing:
+                double = True
+
+        if double:
+            c_type = c_double
+            process_fn = self._effect.process_double_replacing
         else:
-            input = (POINTER(c_float) * self.num_inputs)(*[row.ctypes.data_as(POINTER(c_float)) for row in input])
+            c_type = c_float
+            process_fn = self._effect.process_replacing
+
+        if input is None:
+            input = self._make_empty_array(sample_frames, self.num_inputs, c_type)
+        else:
+            input = (POINTER(c_type) * self.num_inputs)(*[row.ctypes.data_as(POINTER(c_type)) for row in input])
 
         if sample_frames is None:
-            raise ValueError('You must provide `sample_frames` where there is no input')
+            raise ValueError('You must provide `sample_frames` when there is no input')
 
-        output = self._make_empty_array(sample_frames, self.num_outputs)
+        output = self._make_empty_array(sample_frames, self.num_outputs, c_type)
 
         with pipes() if not self.verbose else contextlib.suppress():
-            self._effect.process_replacing(
+            process_fn(
                 byref(self._effect),
                 input,
                 output,
@@ -198,3 +210,7 @@ class VstPlugin:
     @property
     def is_synth(self):
         return self._effect.flags & VstAEffectFlags.effFlagsIsSynth
+
+    @property
+    def can_double_replacing(self):
+        return self._effect.flags & VstAEffectFlags.effFlagsCanDoubleReplacing
