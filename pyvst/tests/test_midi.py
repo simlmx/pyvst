@@ -1,16 +1,21 @@
 import ctypes
-from pyvst.midi import midi_data_as_bytes, midi_note_event, wrap_vst_events
+from pyvst.midi import midi_note_as_bytes, midi_note_event, wrap_vst_events, all_sounds_off_event
 from pyvst.vstwrap import VstMidiEvent
 
 
 def test_note_on_bytes():
-    assert midi_data_as_bytes(10, 10, 'note_on', 2) == b'\x91\x0A\x0A'
-    assert midi_data_as_bytes(100, 100, 'note_off', 16) == b'\x8F\x64\x64'
+    assert midi_note_as_bytes(10, 10, 'note_on', 2) == b'\x91\x0A\x0A'
+    assert midi_note_as_bytes(100, 100, 'note_off', 16) == b'\x8F\x64\x64'
 
 
 def test_midi_note_event():
     midi_note_event(64, 100)
     # TODO test something
+
+
+def test_all_sounds_off_event():
+    # The last 0 disappears... I think it might be normal
+    assert bytes(all_sounds_off_event().midi_data) == b'\xb0\x78'
 
 
 def test_wrap_vst_events():
