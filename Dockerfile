@@ -18,9 +18,10 @@ WORKDIR /workdir/pyvst
 
 COPY setup.py /workdir/pyvst/setup.py
 
+RUN pip3 install -U pip
 # Installing with -e, effectively only writing a simlink, assuming the code will be mounted.
 RUN pip3 install -e /workdir/pyvst[dev]
-RUN pip3 install \
-    ipython
+# Putting this one here because not really a dependency
+RUN pip3 install ipython
 
 ENV HOME /workdir/pyvst

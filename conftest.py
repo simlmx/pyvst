@@ -1,5 +1,7 @@
 import pytest
 
+from pyvst import SimpleHost
+
 
 def _find_test_plugins():
     """
@@ -8,7 +10,10 @@ def _find_test_plugins():
     with open('.test_plugin_path.txt') as f:
         path = f.read().strip()
 
-    return path.split('\n')
+    lines = path.split('\n')
+    lines = [x.strip() for x in lines]
+    lines = [x for x in lines if not x.startswith('#')]
+    return lines
 
 
 _VST_PLUGINS = _find_test_plugins()
@@ -17,3 +22,10 @@ _VST_PLUGINS = _find_test_plugins()
 @pytest.fixture(params=_VST_PLUGINS)
 def vst(request):
     return request.param
+
+
+@pytest.fixture()
+def host(vst):
+    """SimpleHost containing a loaded vst."""
+    host = SimpleHost(vst)
+    return host

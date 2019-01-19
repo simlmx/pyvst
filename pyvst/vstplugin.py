@@ -4,7 +4,7 @@ from ctypes import (cdll, POINTER, c_double,
                     byref, string_at, create_string_buffer)
 from warnings import warn
 
-import numpy
+import numpy as np
 from wurlitzer import pipes
 
 from .vstwrap import (
@@ -12,6 +12,7 @@ from .vstwrap import (
     AEffect,
     AEffectOpcodes,
     AUDIO_MASTER_CALLBACK_TYPE,
+    vst_int_ptr,
     VstPinProperties,
     VstParameterProperties,
     VstPlugCategory,
@@ -66,20 +67,13 @@ class VstPlugin:
     def suspend(self):
         self._dispatch(AEffectOpcodes.effMainsChanged, value=0)
 
-    def __del__(self):
-        # This seem to fix segmentation faults when the VstPlugin is garbage collected.
-        self.suspend()
-        self.close()
-
     def _dispatch(self, opcode, index=0, value=0, ptr=None, opt=0.):
         if ptr is None:
-            ptr = c_void_p(None)
-        # self._effect.dispatcher.argtypes = [POINTER(AEffect), c_int32, c_int32, c_int, c_void_p, c_float]
-
+            ptr = c_void_p()
         # That `pipes()` caused a lot of issues for some reason.
-        # with pipes() if not self.verbose and contextlib.suppress():
-        output = self._effect.dispatcher(byref(self._effect), c_int32(opcode), c_int32(index),
-                                         c_int(value), ptr, c_float(opt))
+        with pipes() if not self.verbose else contextlib.suppress():
+            output = self._effect.dispatcher(byref(self._effect), c_int32(opcode), c_int32(index),
+                                            vst_int_ptr(value), ptr, c_float(opt))
         return output
 
     # Parameters
@@ -154,20 +148,20 @@ class VstPlugin:
 
     # Processing
     #
-    def _make_empty_array(self, sample_frames, num_chan, c_type):
-        """Initializes a pointer of pointer array."""
-        p_type = POINTER(c_type)
 
-        out = (p_type * num_chan)(*[(c_type * sample_frames)() for i in range(num_chan)])
-        for i in range(num_chan):
-            out[i] = (c_type * sample_frames)()
+    def _allocate_array(self, shape, c_type):
+        assert len(shape) == 2
+        insides = [(c_type * shape[1])() for i in range(shape[0])]
+        out = (POINTER(c_type) * shape[0])(*insides)
         return out
 
     def process(self, input=None, sample_frames=None, double=None):
 
         if double is None:
-            if self.can_double_replacing:
-                double = True
+            if input is not None:
+                double = input.dtype == np.float64
+            else:
+                double = self.can_double_replacing
 
         if double:
             c_type = c_double
@@ -177,25 +171,26 @@ class VstPlugin:
             process_fn = self._effect.process_replacing
 
         if input is None:
-            input = self._make_empty_array(sample_frames, self.num_inputs, c_type)
+            input = self._allocate_array((self.num_inputs, sample_frames), c_type)
         else:
-            input = (POINTER(c_type) * self.num_inputs)(*[row.ctypes.data_as(POINTER(c_type)) for row in input])
-
+            input = (POINTER(c_type) * self.num_inputs)(*[row.ctypes.data_as(POINTER(c_type))
+                                                          for row in input])
         if sample_frames is None:
             raise ValueError('You must provide `sample_frames` when there is no input')
 
-        output = self._make_empty_array(sample_frames, self.num_outputs, c_type)
+        output = self._allocate_array((self.num_outputs, sample_frames), c_type)
 
         with pipes() if not self.verbose else contextlib.suppress():
             process_fn(
                 byref(self._effect),
                 input,
                 output,
-                sample_frames
+                sample_frames,
             )
-
-        output = numpy.vstack([numpy.ctypeslib.as_array(output[i], shape=(sample_frames,))
-                               for i in range(self.num_outputs)])
+        output = np.vstack([
+            np.ctypeslib.as_array(output[i], shape=(sample_frames,))
+            for i in range(self.num_outputs)
+        ])
         return output
 
     def process_events(self, vst_events):
@@ -213,4 +208,4 @@ class VstPlugin:
 
     @property
     def can_double_replacing(self):
-        return self._effect.flags & VstAEffectFlags.effFlagsCanDoubleReplacing
+        return bool(self._effect.flags & VstAEffectFlags.effFlagsCanDoubleReplacing)

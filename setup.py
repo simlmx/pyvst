@@ -10,7 +10,8 @@ setup(
     url='https://github.com/simlmx/pyvst',
     packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=[
-        'numpy>=1.15.1',
+        # 'numpy>=1.15.1',
+        "numpy>=1.13.0,<1.14.0",
         'wurlitzer>=1.0.1',
     ],
     extras_require={

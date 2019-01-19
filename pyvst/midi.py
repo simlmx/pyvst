@@ -8,34 +8,34 @@ def _check_channel_valid(channel):
                          .format(channel))
 
 
-def midi_note_as_bytes(note, velocity=100, type_='note_on', channel=1):
+def midi_note_as_bytes(note, velocity=100, kind='note_on', channel=1):
     """
     :param channel: Midi channel (those are 1-indexed)
     """
-    if type_ == 'note_on':
-        type_byte = b'\x90'[0]
-    elif type_ == 'note_off':
-        type_byte = b'\x80'[0]
+    if kind == 'note_on':
+        kind_byte = b'\x90'[0]
+    elif kind == 'note_off':
+        kind_byte = b'\x80'[0]
     else:
-        raise NotImplementedError('MIDI type {} not supported yet'.format(type_))
+        raise NotImplementedError('MIDI type {} not supported yet'.format(kind))
 
     _check_channel_valid(channel)
 
     return bytes([
-        (channel - 1) | type_byte,
+        (channel - 1) | kind_byte,
         note,
         velocity
     ])
 
 
-def midi_note_event(note, velocity=100, channel=1, type_='note_on', delta_frames=0):
+def midi_note_event(note, velocity=100, channel=1, kind='note_on', delta_frames=0):
     """
     Generates a note (on or off) midi event (VstMidiEvent).
 
     :param note: midi note number
     :param velocity: 0-127
     :param channel: 1-16
-    :param type_: "note_on" or "note_off"
+    :param kind: "note_on" or "note_off"
     :delta_frames: In how many frames should the event happen.
     """
     note_on = VstMidiEvent(
@@ -45,7 +45,7 @@ def midi_note_event(note, velocity=100, channel=1, type_='note_on', delta_frames
         flags=0,
         note_length=0,
         note_offset=0,
-        midi_data=midi_note_as_bytes(note, velocity, type_, channel),
+        midi_data=midi_note_as_bytes(note, velocity, kind, channel),
         detune=0,
         note_off_velocity=127,
     )
@@ -70,9 +70,8 @@ def all_sounds_off_event(channel=1):
     _check_channel_valid(channel)
 
     # See https://www.midi.org/specifications-old/item/table-1-summary-of-midi-message
-    type_byte = b'\xb0'[0]
     midi_data = bytes([
-        (channel - 1) | type_byte,
+        (channel - 1) | b'\xb0'[0],
         120,
         0,
     ])
