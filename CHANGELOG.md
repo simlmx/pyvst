@@ -1,6 +1,6 @@
 # Next Release
 
-* Revert the stdout/stderr capture as it caused other issues.
+* A lof or minor (4d08b11)
 
 # 0.4.0
 

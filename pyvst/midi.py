@@ -2,35 +2,40 @@ from ctypes import sizeof, cast, POINTER, pointer
 from .vstwrap import VstMidiEvent, VstEventTypes, VstEvent, get_vst_events_struct
 
 
-def midi_data_as_bytes(note, velocity=100, type_='note_on', chan=1):
-    """
-    :param chan: Midi channel (those are 1-indexed)
-    """
-    if type_ == 'note_on':
-        type_byte = b'\x90'[0]
-    elif type_ == 'note_off':
-        type_byte = b'\x80'[0]
-    else:
-        raise NotImplementedError('MIDI type {} not supported yet'.format(type_))
-
-    if not (1 <= chan <= 16):
+def _check_channel_valid(channel):
+    if not (1 <= channel <= 16):
         raise ValueError('Invalid channel "{}". Must be in the [1, 16] range.'
-                         .format(chan))
+                         .format(channel))
+
+
+def midi_note_as_bytes(note, velocity=100, kind='note_on', channel=1):
+    """
+    :param channel: Midi channel (those are 1-indexed)
+    """
+    if kind == 'note_on':
+        kind_byte = b'\x90'[0]
+    elif kind == 'note_off':
+        kind_byte = b'\x80'[0]
+    else:
+        raise NotImplementedError('MIDI type {} not supported yet'.format(kind))
+
+    _check_channel_valid(channel)
+
     return bytes([
-        (chan - 1) | type_byte,
+        (channel - 1) | kind_byte,
         note,
         velocity
     ])
 
 
-def midi_note_event(note, velocity=100, channel=1, type_='note_on', delta_frames=0):
+def midi_note_event(note, velocity=100, channel=1, kind='note_on', delta_frames=0):
     """
     Generates a note (on or off) midi event (VstMidiEvent).
 
     :param note: midi note number
     :param velocity: 0-127
     :param channel: 1-16
-    :param type_: "note_on" or "note_off"
+    :param kind: "note_on" or "note_off"
     :delta_frames: In how many frames should the event happen.
     """
     note_on = VstMidiEvent(
@@ -40,7 +45,7 @@ def midi_note_event(note, velocity=100, channel=1, type_='note_on', delta_frames
         flags=0,
         note_length=0,
         note_offset=0,
-        midi_data=midi_data_as_bytes(note, velocity, type_, channel),
+        midi_data=midi_note_as_bytes(note, velocity, kind, channel),
         detune=0,
         note_off_velocity=127,
     )
@@ -58,3 +63,29 @@ def wrap_vst_events(midi_events):
         events=p_array(*p_midi_events)
     )
     return events
+
+
+def all_sounds_off_event(channel=1):
+
+    _check_channel_valid(channel)
+
+    # See https://www.midi.org/specifications-old/item/table-1-summary-of-midi-message
+    midi_data = bytes([
+        (channel - 1) | b'\xb0'[0],
+        120,
+        0,
+    ])
+
+    midi_event = VstMidiEvent(
+        type=VstEventTypes.kVstMidiType,
+        byte_size=sizeof(VstMidiEvent),
+        delta_frames=0,
+        flags=0,
+        note_length=0,
+        note_offset=0,
+        midi_data=midi_data,
+        detune=0,
+        note_off_velocity=0,
+    )
+
+    return midi_event

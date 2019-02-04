@@ -1,4 +1,4 @@
-from ctypes import addressof
+from ctypes import addressof, create_string_buffer
 from warnings import warn
 
 import numpy as np
@@ -56,16 +56,23 @@ class Transport:
 
 class SimpleHost:
     """Simple host that holds a single (synth) vst."""
-    def __init__(self, sample_rate=44100., tempo=120., block_size=512):
+
+    _product_string = create_string_buffer(b'pyvst SimpleHost')
+
+    def __init__(self, vst_filename=None, sample_rate=44100., tempo=120., block_size=512):
         self.sample_rate = sample_rate
         self.transport = Transport(sample_rate, tempo)
         self.block_size = block_size
 
         def callback(*args):
             return self._audio_master_callback(*args)
+
         self._callback = callback
         self._vst = None
         self._vst_path = None
+
+        if vst_filename is not None:
+            self.load_vst(vst_filename)
 
     @property
     def vst(self):
@@ -73,55 +80,54 @@ class SimpleHost:
             raise RuntimeError('You must first load a vst using `self.load_vst`.')
         return self._vst
 
-    def load_vst(self, path_to_so_file=None):
+    def reload_vst(self):
+        params = [self.vst.get_param_value(i) for i in range(self.vst.num_params)]
+        self.vst.suspend()
+        self.vst.close()
+        del self._vst
+
+        self.load_vst(self._path_to_so_file)
+        for i, p in enumerate(params):
+            self.vst.set_param_value(i, p)
+
+    def load_vst(self, path_to_so_file, verbose=False):
         """
         Loads a vst. If there was already a vst loaded, we will release it.
 
-        :param path_to_so_file: Path to the .so file to use as a plugin. If we call this without
-            any path, we will simply try to reload using the same path as the last call.
+        :param path_to_so_file: Path to the .so file to use as a plugin.
+        :param verbose: Set to False (default) to capture the VST's stdout/stderr.
         """
-        reloading = False
-        if path_to_so_file is None:
-            if not self._vst_path:
-                raise RuntimeError('The first time, you must pass a path to the .so file.')
-            path_to_so_file = self._vst_path
-            reloading = True
+        self._vst = VstPlugin(path_to_so_file, self._callback, verbose=verbose)
 
-        if self._vst:
-            # If we are only reloading, let's note all the VST parameters so that we can put them
-            # back.
-            if reloading:
-                params = [self._vst.get_param_value(i) for i in range(self._vst.num_params)]
-            del self._vst
+        # Not sure I need this but I've seen it in other hosts
+        self.vst.open()
 
-        self._vst = VstPlugin(path_to_so_file, self._callback)
-
-        # If we are reloading the same VST, put back the parameters where they were.
-        if reloading:
-            for i, p in enumerate(params):
-                self._vst.set_param_value(i, p)
-
-        # Is this really the best way to check for a synth?
-        if self.vst.num_inputs != 0:
-            raise RuntimeError('Your VST should had 0 inputs.')
+        if not self._vst.is_synth:
+            raise RuntimeError('Your VST must be a synth!')
 
         self.vst.set_sample_rate(self.sample_rate)
         self.vst.set_block_size(self.block_size)
         self.vst.resume()
 
-        # We note the path so that we can easily reload it!
-        self._vst_path = path_to_so_file
+        # Warm up the VST by playing a quick note. It has fixed some issues for TyrellN6 where
+        # otherwise the first note is funny.
+        self._path_to_so_file = path_to_so_file
+        self.play_note(note=64, min_duration=.1, max_duration=.1, note_duration=.1, velocity=127,
+                       reload=False)
 
     def play_note(self, note=64, note_duration=.5, velocity=100, max_duration=5.,
-                  min_duration=0.01, volume_threshold=0.000002):
+                  min_duration=0.01, volume_threshold=0.000002, reload=False):
         """
         :param note_duration: Duration between the note on and note off midi events, in seconds.
 
         The audio will then last between `min_duration` and `max_duration`, stopping when
         sqrt(mean(signal ** 2)) falls under `volume_threshold` for a single buffer. For those
         arguments, `None` means they are ignored.
-        """
 
+        :param reload: Will delete and reload the vst after having playing the note. It's an
+            extreme way of making sure the internal state of the VST is reset. When False, we
+            simply suspend() and resume() the VST (which should be enough in most cases).
+        """
         if max_duration is not None and max_duration < note_duration:
             raise ValueError('max_duration ({}) is smaller than the midi note_duration ({})'
                              .format(max_duration, note_duration))
@@ -133,14 +139,14 @@ class SimpleHost:
         # Call this here to fail fast in case the VST has not been loaded
         self.vst
 
-        # nb of frames before the note_off events
-        noteoff_is_in = round(note_duration * self.sample_rate)
-
         # Convert the durations from seconds to frames
         min_duration = round(min_duration * self.sample_rate)
         max_duration = round(max_duration * self.sample_rate)
 
         note_on = midi_note_event(note, velocity)
+
+        # nb of frames before the note_off events
+        noteoff_is_in = round(note_duration * self.sample_rate)
 
         outputs = []
 
@@ -154,7 +160,7 @@ class SimpleHost:
 
             # If it's time for the note off
             if 0 <= noteoff_is_in < self.block_size:
-                note_off = midi_note_event(note, 0, type_='note_off', delta_frames=noteoff_is_in)
+                note_off = midi_note_event(note, 0, kind='note_off', delta_frames=noteoff_is_in)
                 self.vst.process_events(wrap_vst_events([note_off]))
 
             output = self.vst.process(input=None, sample_frames=self.block_size)
@@ -172,9 +178,6 @@ class SimpleHost:
             # Which means the "noteoff is in" one block_size sooner
             noteoff_is_in -= self.block_size
 
-        # Reload the plugin to clear its state
-        self.load_vst()
-
         # Concatenate all the output buffers
         outputs = np.hstack(outputs)
 
@@ -182,9 +185,18 @@ class SimpleHost:
         if max_duration is not None:
             outputs = outputs[:, :max_duration]
 
+        # Reset the plugin to clear its state
+        if reload:
+            self.reload_vst()
+        else:
+            self.vst.suspend()
+            self.vst.resume()
+
         return outputs
 
     def _audio_master_callback(self, effect, opcode, index, value, ptr, opt):
+        # Note that there are a lot of missing opcodes here, I basically add them as I see VST
+        # asking for them...
         if opcode == AudioMasterOpcodes.audioMasterVersion:
             return 2400
         # Deprecated but some VSTs still ask for it
@@ -226,6 +238,13 @@ class SimpleHost:
                 flags=flags,
             )
             return addressof(self._last_time_info)
+        elif opcode == AudioMasterOpcodes.audioMasterGetProductString:
+            return addressof(self._product_string)
+        elif opcode == AudioMasterOpcodes.audioMasterIOChanged:
+            return 0
+        elif opcode == AudioMasterOpcodes.audioMasterGetCurrentProcessLevel:
+            # This should mean "not supported by Host"
+            return 0
         else:
             warn('Audio master call back opcode "{}" not supported yet'.format(opcode))
         return 0

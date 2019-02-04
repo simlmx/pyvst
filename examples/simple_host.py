@@ -11,10 +11,8 @@ def _print_params(vst, max_params=10):
         ))
 
 
-def _main(vst_filename):
-    host = SimpleHost(sample_rate=48000.)
-    host.load_vst(vst_filename)
-
+def main(vst_filename):
+    host = SimpleHost(vst_filename, sample_rate=48000.)
     _print_params(host.vst)
 
     sound = host.play_note(note=64, note_duration=1.)
@@ -36,4 +34,4 @@ if __name__ == '__main__':
     parser.add_argument('vst', help='path to .so file')
     args = parser.parse_args()
 
-    _main(args.vst)
+    main(args.vst)

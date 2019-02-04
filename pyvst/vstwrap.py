@@ -1,7 +1,11 @@
-from ctypes import (cdll, Structure, POINTER, CFUNCTYPE,
-                    c_void_p, c_int, c_float, c_int32, c_double, c_char, c_int16,
-                    addressof, byref, pointer)
+from ctypes import (Structure, POINTER, CFUNCTYPE, c_void_p, c_float,
+                    c_int32, c_double, c_char, c_int16, c_int64)
 from enum import IntEnum
+
+
+# Corresponds to VstIntPtr in aeffect.h
+# We're assuming we are working in 64bit
+vst_int_ptr = c_int64
 
 
 class AudioMasterOpcodes(IntEnum):
@@ -306,11 +310,12 @@ class AEffect(Structure):
     pass
 
 
-AUDIO_MASTER_CALLBACK_TYPE = CFUNCTYPE(c_void_p, POINTER(AEffect), c_int32, c_int32, c_int, c_void_p, c_float)
+# typedef	VstIntPtr (VSTCALLBACK *audioMasterCallback) (AEffect* effect, VstInt32 opcode, VstInt32 index, VstIntPtr value, void* ptr, float opt);
+AUDIO_MASTER_CALLBACK_TYPE = CFUNCTYPE(vst_int_ptr, POINTER(AEffect), c_int32, c_int32, vst_int_ptr, c_void_p, c_float)
 # typedef VstIntPtr (VSTCALLBACK *AEffectDispatcherProc) (AEffect* effect, VstInt32 opcode, VstInt32 index, VstIntPtr value, void* ptr, float opt);
-_AEFFECT_DISPATCHER_PROC_TYPE = CFUNCTYPE(c_int, POINTER(AEffect), c_int32, c_int32, c_int, c_void_p, c_float)
+_AEFFECT_DISPATCHER_PROC_TYPE = CFUNCTYPE(vst_int_ptr, POINTER(AEffect), c_int32, c_int32, vst_int_ptr, c_void_p, c_float)
 # typedef void (VSTCALLBACK *AEffectProcessProc) (AEffect* effect, float** inputs, float** outputs, VstInt32 sampleFrames);
-# AEFFECT_PROCESS_PROC_TYPE = CFUNCTYPE(c_void_p,
+# _AEFFECT_PROCESS_PROC_TYPE = CFUNCTYPE(c_void_p,
 #                                       POINTER(AEffect),
 #                                       POINTER(POINTER(c_float)),
 #                                       POINTER(POINTER(c_float)),
@@ -334,8 +339,8 @@ AEffect._fields_ = [
     ('num_inputs', c_int32),
     ('num_outputs', c_int32),
     ('flags', c_int32),
-    ('resvd1', c_void_p),
-    ('resvd2', c_void_p),
+    ('resvd1', vst_int_ptr),
+    ('resvd2', vst_int_ptr),
     ('initial_delay', c_int32),
     ('_realQualities', c_int32),
     ('_offQualities', c_int32),
@@ -347,7 +352,6 @@ AEffect._fields_ = [
     ('process_replacing', _AEFFECT_PROCESS_PROC),
     ('process_double_replacing', _AEFFECT_PROCESS_DOUBLE_PROC),
     ('_future1', c_char * 56),
-    ('_future2', c_char * 60),
 ]
 
 
@@ -382,6 +386,7 @@ class VstPinProperties(Structure):
         ('arrangement_type', c_int32),
         # short name (recommende 6 + delimiter)
         ('short_label', c_char * 8),  # FIXME same
+        ('future', c_char * 48),
     ]
 
 
@@ -465,7 +470,7 @@ class VstEvents(Structure):
         # number of Events in array
         ('num_events', c_int32),
         # zero (Reserved for future use)
-        ('reserved', c_void_p),
+        ('reserved', vst_int_ptr),
         # event pointer array, variable size
         ('events', POINTER(VstEvent) * 2),
     ]
@@ -477,7 +482,7 @@ def get_vst_events_struct(num_events):
             # number of Events in array
             ('num_events', c_int32),
             # zero (Reserved for future use)
-            ('reserved', c_void_p),
+            ('reserved', vst_int_ptr),
             # event pointer array, variable size
             ('events', POINTER(VstEvent) * num_events),
         ]
