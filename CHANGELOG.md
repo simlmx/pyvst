@@ -1,6 +1,8 @@
 # Next Release
 
-* A lof or minor (4d08b11)
+# 0.5.0
+
+* A lof of minor tweaks (4d08b11)
 
 # 0.4.0
 
