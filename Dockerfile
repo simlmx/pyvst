@@ -12,6 +12,8 @@ RUN apt-get update \
         # For TyrellN6
         libglib2.0 \
         libcairo2 \
+        # amsynth
+        libgtk2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workdir/pyvst
