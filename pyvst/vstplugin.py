@@ -70,7 +70,6 @@ class VstPlugin:
     def _dispatch(self, opcode, index=0, value=0, ptr=None, opt=0.):
         if ptr is None:
             ptr = c_void_p()
-        # That `pipes()` caused a lot of issues for some reason.
         with pipes() if not self.verbose else contextlib.suppress():
             output = self._effect.dispatcher(byref(self._effect), c_int32(opcode), c_int32(index),
                                             vst_int_ptr(value), ptr, c_float(opt))

@@ -3,8 +3,8 @@ My attempt at hosting VSTs using `ctypes`.
 
 # Running the tests
 
-    ./docker_build.sh
-    ./docker_run.sh
+    make build
+    make run
     pytest tests --verbose
 
 
