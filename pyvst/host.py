@@ -90,14 +90,13 @@ class SimpleHost:
         for i, p in enumerate(params):
             self.vst.set_param_value(i, p)
 
-    def load_vst(self, path_to_so_file, verbose=False):
+    def load_vst(self, path_to_so_file):
         """
         Loads a vst. If there was already a vst loaded, we will release it.
 
         :param path_to_so_file: Path to the .so file to use as a plugin.
-        :param verbose: Set to False (default) to capture the VST's stdout/stderr.
         """
-        self._vst = VstPlugin(path_to_so_file, self._callback, verbose=verbose)
+        self._vst = VstPlugin(path_to_so_file, self._callback)
 
         # Not sure I need this but I've seen it in other hosts
         self.vst.open()

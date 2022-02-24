@@ -1,7 +1,7 @@
 My attempt at hosting VSTs using `ctypes`.
 
 
-# Running the tests
+# Running in Docker
 
     make build
     make run

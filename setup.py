@@ -11,13 +11,10 @@ setup(
     packages = find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=[
         'numpy>=1.16.0',
-        'wurlitzer>=1.0.1',
     ],
     extras_require={
         'dev': [
             'pytest>=3.8.0',
-            'matplotlib>=3.0.0',
-            'jupyter>=1.0.0',
         ],
     }
 )
